@@ -1,32 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/reply/route.ts
+export async function POST(req: Request) {
+  const data = await req.formData(); // form submits as FormData
+  const payload = Object.fromEntries(data.entries());
 
-export async function POST(req: NextRequest) {
-  const data = await req.formData();
-  const decision = String(data.get("decision") || "");
-  const notes = String(data.get("notes") || "");
-  const taskId = String(data.get("taskId") || "");
-  const title = String(data.get("title") || "");
-  const client = String(data.get("client") || "");
-  const due = String(data.get("due") || "");
-  const preview = String(data.get("preview") || "");
+  // your Zapier Catch Hook (from you)
+  const ZAPIER_HOOK = "https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/";
 
-  if (!taskId || !decision) {
-    return NextResponse.json({ ok: false, error: "Missing taskId or decision" }, { status: 400 });
+  try {
+    const res = await fetch(ZAPIER_HOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    return new Response(
+      JSON.stringify({ ok: res.ok, forwardedToZapier: true }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ ok: false, error: String(e) }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
+}
 
-  const hook = process.env.ZAPIER_WEBHOOK_URL; // set in Vercel
-  if (!hook) {
-    return NextResponse.json({ ok: false, error: "Server missing ZAPIER_WEBHOOK_URL" }, { status: 500 });
-  }
-
-  // Forward the payload to Zapier
-  const payload = { decision, notes, taskId, title, client, due, preview, source: "client-review" };
-  const res = await fetch(hook, {
-    method: "POST",
+export async function GET() {
+  return new Response(JSON.stringify({ ok: true, via: "GET /api/reply" }), {
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
   });
-
-  const ok = res.ok;
-  return NextResponse.json({ ok });
 }
