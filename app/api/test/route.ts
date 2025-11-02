@@ -1,11 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-
 export async function GET() {
-  return NextResponse.json({ ok: true, via: "GET", ts: new Date().toISOString() });
+  return new Response(
+    JSON.stringify({ ok: true, via: "GET", ts: new Date().toISOString() }),
+    { headers: { "Content-Type": "application/json" } }
+  );
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   console.log("ZAPIER TEST 🔥", body);
-  return NextResponse.json({ ok: true, via: "POST", echo: body, ts: new Date().toISOString() });
+  return new Response(
+    JSON.stringify({ ok: true, via: "POST", echo: body, ts: new Date().toISOString() }),
+    { headers: { "Content-Type": "application/json" } }
+  );
 }
+
