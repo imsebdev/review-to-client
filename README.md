@@ -50,3 +50,6 @@ Open http://localhost:3000/t/86c5w3c3p?title=Homepage%20V2&client=SpiderAds&due=
 - The review page uses **query params**; you can add more (e.g., multiple previews).
 - `/api/generate` creates a signed link with 30-day expiry (`sig` + `exp` params).
 - To add multiple images, pass `preview` as a comma-separated string and split in the page.
+
+- # Trigger redeploy
+
