@@ -1,137 +1,267 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Client Review</title>
-    <style>
-      body {
-        font-family: system-ui, sans-serif;
-        background: #0b0b0f;
-        color: #fff;
-        margin: 0;
-        padding: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-      }
-      .card {
-        max-width: 600px;
-        width: 100%;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 1rem;
-        padding: 2rem;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-      }
-      img {
-        width: 100%;
-        max-height: 360px;
-        object-fit: cover;
-        border-radius: 0.75rem;
-        margin-bottom: 1rem;
-      }
-      h1 {
-        font-size: 1.75rem;
-        margin-bottom: 0.25rem;
-      }
-      .meta {
-        color: #aaa;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
-      }
-      textarea {
-        width: 100%;
-        min-height: 120px;
-        border-radius: 0.5rem;
-        border: none;
-        padding: 0.75rem;
-        resize: vertical;
-      }
-      button {
-        background: white;
-        color: #111;
-        border: none;
-        padding: 0.75rem 1.25rem;
-        border-radius: 0.5rem;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .radio-group {
-        margin: 1rem 0;
-      }
-      label {
-        display: block;
-        margin-bottom: 0.5rem;
-        cursor: pointer;
-      }
-      .footer {
-        text-align: center;
-        color: #666;
-        font-size: 0.8rem;
-        margin-top: 1.5rem;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h1 id="title">Client Review</h1>
-      <div class="meta" id="meta"></div>
-      <img id="preview" style="display:none;" alt="Preview" />
-      <form
-        id="reviewForm"
-        method="POST"
-        action="https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/"
-      >
-        <div class="radio-group">
-          <label>
-            <input type="radio" name="decision" value="approve" required />
-            ✅ Approve
-          </label>
-          <label>
-            <input type="radio" name="decision" value="needs_changes" />
-            🔄 Needs Changes
-          </label>
-        </div>
-        <textarea
-          name="notes"
-          placeholder="Add notes (required if requesting changes)"
-        ></textarea>
-        <!-- hidden fields -->
-        <input type="hidden" name="taskId" id="taskId" />
-        <input type="hidden" name="title" id="titleField" />
-        <input type="hidden" name="client" id="clientField" />
-        <input type="hidden" name="due" id="dueField" />
-        <input type="hidden" name="preview" id="previewField" />
-        <button type="submit">Send Review</button>
-      </form>
-      <div class="footer">
-        Powered by ImSeb · Client Review System
-      </div>
-    </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client Review</title>
+  <script>
+    function qp(key, fallback="") {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(key) || fallback;
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+      const taskId = qp("taskId");
+      const title = qp("title", "Untitled Task");
+      const client = qp("client", "Client");
+      const due = qp("due", "");
+      const preview = qp("preview", "");
 
-    <script>
-      const params = new URLSearchParams(window.location.search);
-      const title = params.get("title") || "Untitled";
-      const client = params.get("client") || "Client";
-      const due = params.get("due") || "—";
-      const preview = params.get("preview");
-      const taskId = params.get("taskId") || "—";
+      document.getElementById("taskIdText").textContent = taskId || "—";
+      document.getElementById("titleText").textContent = title;
+      document.getElementById("clientText").textContent = client;
+      document.getElementById("dueText").textContent = due || "—";
 
-      document.getElementById("title").textContent = title;
-      document.getElementById("meta").textContent = `${client} · Due ${due}`;
+      const previewWrap = document.getElementById("previewWrap");
       if (preview) {
-        const img = document.getElementById("preview");
-        img.src = decodeURIComponent(preview);
-        img.style.display = "block";
+        const img = document.createElement("img");
+        img.src = preview;
+        img.alt = "Preview";
+        img.style.maxWidth = "100%";
+        img.style.borderRadius = "10px";
+        img.loading = "lazy";
+        previewWrap.appendChild(img);
+
+        const link = document.createElement("p");
+        link.innerHTML = `<a href="${preview}" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: none;">Open full image ↗</a>`;
+        link.style.marginTop = "8px";
+        previewWrap.appendChild(link);
+      } else {
+        previewWrap.innerHTML = "<em style='color: #9ca3af;'>No preview provided.</em>";
       }
 
       document.getElementById("taskId").value = taskId;
-      document.getElementById("titleField").value = title;
-      document.getElementById("clientField").value = client;
-      document.getElementById("dueField").value = due;
-      document.getElementById("previewField").value = preview || "";
-    </script>
-  </body>
+      document.getElementById("title").value = title;
+      document.getElementById("client").value = client;
+      document.getElementById("due").value = due;
+      document.getElementById("preview").value = preview;
+
+      const form = document.getElementById("reviewForm");
+      form.addEventListener("submit", (e) => {
+        const approve = document.getElementById("approve").checked;
+        const changes = document.getElementById("changes").checked;
+        if (!approve && !changes) {
+          e.preventDefault();
+          alert("Please select a decision (Approve or Needs changes).");
+          return;
+        }
+        if (changes) {
+          const notes = document.getElementById("notes").value.trim();
+          if (!notes) {
+            e.preventDefault();
+            alert("Please add notes when requesting changes.");
+            return;
+          }
+        }
+      });
+    });
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #000;
+      color: #fff;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 20px;
+      padding: 40px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    .task-pill {
+      background: transparent;
+      border: 1px solid #444;
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 14px;
+      color: #999;
+    }
+    .task-info {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #333;
+    }
+    .task-info p {
+      margin: 8px 0;
+      color: #e5e5e5;
+    }
+    .task-info strong {
+      color: #fff;
+    }
+    .task-info small {
+      color: #999;
+    }
+    #previewWrap {
+      margin: 24px 0;
+    }
+    .decision-section {
+      margin: 32px 0 24px 0;
+    }
+    .decision-section h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .radio-option {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      cursor: pointer;
+    }
+    .radio-option input[type="radio"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 12px;
+      cursor: pointer;
+      accent-color: #3b82f6;
+    }
+    .radio-option label {
+      cursor: pointer;
+      font-size: 16px;
+      user-select: none;
+    }
+    .notes-section {
+      margin: 24px 0;
+    }
+    .notes-section label {
+      display: block;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    textarea {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 14px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      resize: vertical;
+      min-height: 120px;
+    }
+    textarea::placeholder {
+      color: #666;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin: 24px 0;
+    }
+    button {
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #1e40af;
+      color: white;
+      border: none;
+    }
+    .btn-primary:hover {
+      background: #1e3a8a;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #999;
+      border: 1px solid #444;
+    }
+    .btn-secondary:hover {
+      border-color: #666;
+      color: #ccc;
+    }
+    .footer-text {
+      color: #666;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>Client Review</h1>
+        <div class="task-pill">Task: <span id="taskIdText">—</span></div>
+      </div>
+
+      <div class="task-info">
+        <p><strong id="titleText">Untitled Task</strong> — for <strong id="clientText">Client</strong></p>
+        <p><small>Due: <span id="dueText">—</span></small></p>
+      </div>
+
+      <div id="previewWrap"></div>
+
+      <form id="reviewForm" method="POST" action="https://hook.eu1.make.com/replace-this-with-your-webhook">
+        <div class="decision-section">
+          <h3>Decision</h3>
+          <div class="radio-option">
+            <input type="radio" name="decision" id="approve" value="approve">
+            <label for="approve">Approve ✅</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" name="decision" id="changes" value="needs_changes">
+            <label for="changes">Needs changes 🔄</label>
+          </div>
+        </div>
+
+        <div class="notes-section">
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" placeholder="Optional notes (required if requesting changes)"></textarea>
+        </div>
+
+        <input type="hidden" id="taskId" name="taskId" value="">
+        <input type="hidden" id="title" name="title" value="">
+        <input type="hidden" id="client" name="client" value="">
+        <input type="hidden" id="due" name="due" value="">
+        <input type="hidden" id="preview" name="preview" value="">
+
+        <div class="actions">
+          <button type="submit" class="btn-primary">Send review</button>
+          <button type="reset" class="btn-secondary" onclick="window.location.reload()">Reset</button>
+        </div>
+
+        <p class="footer-text">Submitting will POST these fields to your webhook: decision, notes, taskId, title, client, due, preview.</p>
+      </form>
+    </div>
+  </div>
+</body>
 </html>
