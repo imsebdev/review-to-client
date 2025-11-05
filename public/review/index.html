@@ -47,11 +47,12 @@
 
       const form = document.getElementById("reviewForm");
       form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        
         const approve = document.getElementById("approve").checked;
         const changes = document.getElementById("changes").checked;
         
         if (!approve && !changes) {
-          e.preventDefault();
           alert("Please select a decision (Approve or Needs changes).");
           return;
         }
@@ -59,13 +60,43 @@
         if (changes) {
           const notes = document.getElementById("notes").value.trim();
           if (!notes) {
-            e.preventDefault();
             alert("Please add notes when requesting changes.");
             return;
           }
         }
 
-        // Form will submit normally to Zapier
+        // Create a temporary form that will POST in a new context
+        const tempForm = document.createElement('form');
+        tempForm.method = 'POST';
+        tempForm.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+        tempForm.target = '_blank';
+        
+        // Copy all form data
+        const formData = new FormData(form);
+        for (let [key, value] of formData.entries()) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = value;
+          tempForm.appendChild(input);
+        }
+        
+        document.body.appendChild(tempForm);
+        tempForm.submit();
+        
+        // Show success message
+        setTimeout(() => {
+          document.body.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+              <div style="text-align: center; max-width: 500px; padding: 40px;">
+                <div style="font-size: 64px; margin-bottom: 24px;">✅</div>
+                <h2 style="font-size: 32px; margin-bottom: 16px;">Review Submitted!</h2>
+                <p style="color: #999; font-size: 18px; line-height: 1.6;">Your feedback has been sent to the team. You can close this page now.</p>
+                <p style="color: #666; font-size: 14px; margin-top: 24px;">A confirmation tab opened - you can close that too.</p>
+              </div>
+            </div>
+          `;
+        }, 100);
       });
     });
   </script>
@@ -238,7 +269,7 @@
 
       <div id="previewWrap"></div>
 
-      <form id="reviewForm" method="POST" action="https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/">
+      <form id="reviewForm">
         <div class="decision-section">
           <h3>Decision</h3>
           <div class="radio-option">
