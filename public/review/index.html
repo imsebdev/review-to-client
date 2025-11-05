@@ -83,7 +83,13 @@
             'Content-Type': 'application/json'
           }
         })
-        .then(response => response.json())
+        .then(response => {
+          // Zapier webhooks return different status codes, accept any 2xx response
+          if (response.ok || response.status === 200) {
+            return response.text(); // Sometimes returns plain text instead of JSON
+          }
+          throw new Error('Network response was not ok');
+        })
         .then(result => {
           // Success!
           document.body.innerHTML = `
