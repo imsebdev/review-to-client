@@ -47,12 +47,11 @@
 
       const form = document.getElementById("reviewForm");
       form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        
         const approve = document.getElementById("approve").checked;
         const changes = document.getElementById("changes").checked;
         
         if (!approve && !changes) {
+          e.preventDefault();
           alert("Please select a decision (Approve or Needs changes).");
           return;
         }
@@ -60,54 +59,13 @@
         if (changes) {
           const notes = document.getElementById("notes").value.trim();
           if (!notes) {
+            e.preventDefault();
             alert("Please add notes when requesting changes.");
             return;
           }
         }
 
-        // Prepare data
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
-
-        // Show loading state
-        const submitBtn = document.querySelector('.btn-primary');
-        const originalText = submitBtn.textContent;
-        submitBtn.textContent = 'Sending...';
-        submitBtn.disabled = true;
-
-        // Send to Zapier
-        fetch('https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/', {
-          method: 'POST',
-          body: JSON.stringify(data),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
-        .then(response => {
-          // Zapier webhooks return different status codes, accept any 2xx response
-          if (response.ok || response.status === 200) {
-            return response.text(); // Sometimes returns plain text instead of JSON
-          }
-          throw new Error('Network response was not ok');
-        })
-        .then(result => {
-          // Success!
-          document.body.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-              <div style="text-align: center; max-width: 500px; padding: 40px;">
-                <div style="font-size: 64px; margin-bottom: 24px;">✅</div>
-                <h2 style="font-size: 32px; margin-bottom: 16px;">Review Submitted!</h2>
-                <p style="color: #999; font-size: 18px;">Your feedback has been sent. You can close this page.</p>
-              </div>
-            </div>
-          `;
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          alert('There was an error submitting your review. Please try again.');
-          submitBtn.textContent = originalText;
-          submitBtn.disabled = false;
-        });
+        // Form will submit normally to Zapier
       });
     });
   </script>
@@ -280,7 +238,7 @@
 
       <div id="previewWrap"></div>
 
-      <form id="reviewForm">
+      <form id="reviewForm" method="POST" action="https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/">
         <div class="decision-section">
           <h3>Decision</h3>
           <div class="radio-option">
