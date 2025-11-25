@@ -3,48 +3,76 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Client Review</title>
+  <title>Client Review - SpiderAds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script>
     function qp(key, fallback="") {
       const url = new URL(window.location.href);
       return url.searchParams.get(key) || fallback;
     }
+    
     document.addEventListener("DOMContentLoaded", () => {
       const taskId = qp("taskId");
       const title = qp("title", "Untitled Task");
       const client = qp("client", "Client");
       const due = qp("due", "");
-      const preview = qp("preview", "");
-
+      const previewParam = qp("preview", "");
+      
+      // Split preview URLs by comma
+      const previewUrls = previewParam ? previewParam.split(',').map(url => url.trim()).filter(url => url) : [];
+      
       document.getElementById("taskIdText").textContent = taskId || "—";
       document.getElementById("titleText").textContent = title;
       document.getElementById("clientText").textContent = client;
       document.getElementById("dueText").textContent = due || "—";
-
-      const previewWrap = document.getElementById("previewWrap");
-      if (preview) {
-        const img = document.createElement("img");
-        img.src = preview;
-        img.alt = "Preview";
-        img.style.maxWidth = "100%";
-        img.style.borderRadius = "10px";
-        img.loading = "lazy";
-        previewWrap.appendChild(img);
-
-        const link = document.createElement("p");
-        link.innerHTML = `<a href="${preview}" target="_blank" rel="noopener" style="color: #60a5fa; text-decoration: none;">Open full image ↗</a>`;
-        link.style.marginTop = "8px";
-        previewWrap.appendChild(link);
+      
+      // Build carousel or single image
+      const carouselMain = document.getElementById("carouselMain");
+      const thumbnails = document.getElementById("thumbnails");
+      const carouselCounter = document.getElementById("carouselCounter");
+      
+      if (previewUrls.length === 0) {
+        carouselMain.innerHTML = "<em style='color: #9ca3af;'>No preview provided.</em>";
+        carouselCounter.style.display = "none";
+      } else if (previewUrls.length === 1) {
+        // Single image - no carousel needed
+        carouselMain.innerHTML = `<img src="${previewUrls[0]}" alt="Preview" style="width:100%; border-radius:12px;">`;
+        carouselCounter.style.display = "none";
+        document.querySelector('.carousel-nav.prev').style.display = "none";
+        document.querySelector('.carousel-nav.next').style.display = "none";
       } else {
-        previewWrap.innerHTML = "<em style='color: #9ca3af;'>No preview provided.</em>";
+        // Multiple images - build carousel
+        document.getElementById("totalSlides").textContent = previewUrls.length;
+        
+        previewUrls.forEach((url, index) => {
+          // Create slide
+          const slide = document.createElement('div');
+          slide.className = 'carousel-slide' + (index === 0 ? ' active' : '');
+          slide.innerHTML = `<img src="${url}" alt="Design ${index + 1}">`;
+          carouselMain.insertBefore(slide, carouselMain.querySelector('.carousel-nav.prev'));
+          
+          // Create thumbnail
+          const thumb = document.createElement('div');
+          thumb.className = 'thumbnail' + (index === 0 ? ' active' : '');
+          thumb.onclick = () => goToSlide(index);
+          thumb.innerHTML = `<img src="${url}" alt="Thumb ${index + 1}">`;
+          thumbnails.appendChild(thumb);
+        });
+        
+        window.slides = document.querySelectorAll('.carousel-slide');
+        window.thumbnails = document.querySelectorAll('.thumbnail');
       }
-
+      
+      // Fill hidden form fields
       document.getElementById("taskId").value = taskId;
       document.getElementById("title").value = title;
       document.getElementById("client").value = client;
       document.getElementById("due").value = due;
-      document.getElementById("preview").value = preview;
-
+      document.getElementById("preview").value = previewParam;
+      
+      // Form validation and submission
       const form = document.getElementById("reviewForm");
       form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -62,16 +90,14 @@
           if (!notes) {
             alert("Please add notes when requesting changes.");
             return;
-          }
         }
-
-        // Create a temporary form that will POST in a new context
+        }
+        
+        // Create temp form for submission
         const tempForm = document.createElement('form');
         tempForm.method = 'POST';
         tempForm.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
-        tempForm.target = '_self';
         
-        // Copy all form data
         const formData = new FormData(form);
         for (let [key, value] of formData.entries()) {
           const input = document.createElement('input');
@@ -84,20 +110,59 @@
         document.body.appendChild(tempForm);
         tempForm.submit();
         
-        // Show success message
+        // Show success
         setTimeout(() => {
           document.body.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); color: #fff; font-family: 'Inter', sans-serif;">
               <div style="text-align: center; max-width: 500px; padding: 40px;">
                 <div style="font-size: 64px; margin-bottom: 24px;">✅</div>
-                <h2 style="font-size: 32px; margin-bottom: 16px;">Review Submitted!</h2>
-                <p style="color: #999; font-size: 18px; line-height: 1.6;">Your feedback has been sent to the team. You can close this page now.</p>
-                <p style="color: #666; font-size: 14px; margin-top: 24px;">A confirmation tab opened - you can close that too.</p>
+                <h2 style="font-size: 32px; margin-bottom: 16px; font-weight: 700;">Review Submitted!</h2>
+                <p style="color: #9090b0; font-size: 18px; line-height: 1.6;">Your feedback has been sent to the team. You can close this page now.</p>
               </div>
             </div>
           `;
         }, 100);
       });
+    });
+    
+    // Carousel functions
+    let currentSlideIndex = 0;
+    
+    function showSlide(index) {
+      if (!window.slides) return;
+      
+      window.slides.forEach(s => s.classList.remove('active'));
+      window.thumbnails.forEach(t => t.classList.remove('active'));
+      
+      window.slides[index].classList.add('active');
+      window.thumbnails[index].classList.add('active');
+      
+      document.getElementById('currentSlide').textContent = index + 1;
+    }
+    
+    function changeSlide(direction) {
+      if (!window.slides) return;
+      
+      currentSlideIndex += direction;
+      
+      if (currentSlideIndex < 0) {
+        currentSlideIndex = window.slides.length - 1;
+      } else if (currentSlideIndex >= window.slides.length) {
+        currentSlideIndex = 0;
+      }
+      
+      showSlide(currentSlideIndex);
+    }
+    
+    function goToSlide(index) {
+      currentSlideIndex = index;
+      showSlide(currentSlideIndex);
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') changeSlide(-1);
+      if (e.key === 'ArrowRight') changeSlide(1);
     });
   </script>
   <style>
@@ -107,150 +172,301 @@
       box-sizing: border-box;
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #000;
-      color: #fff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: #ffffff;
       padding: 40px 20px;
       line-height: 1.6;
+      min-height: 100vh;
     }
     .container {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 0 auto;
     }
     .card {
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 20px;
-      padding: 40px;
+      background: rgba(26, 26, 46, 0.6);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 48px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 32px;
     }
     h1 {
-      font-size: 32px;
+      font-size: 36px;
       font-weight: 700;
+      background: linear-gradient(135deg, #ffffff 0%, #a0a0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
     .task-pill {
-      background: transparent;
-      border: 1px solid #444;
-      border-radius: 20px;
-      padding: 8px 16px;
+      background: rgba(160, 160, 255, 0.1);
+      border: 1px solid rgba(160, 160, 255, 0.3);
+      border-radius: 24px;
+      padding: 10px 20px;
       font-size: 14px;
-      color: #999;
+      color: #a0a0ff;
+      font-weight: 500;
     }
     .task-info {
-      margin-bottom: 24px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid #333;
+      margin-bottom: 40px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
     .task-info p {
       margin: 8px 0;
-      color: #e5e5e5;
+      color: #d0d0e0;
+      font-size: 16px;
     }
     .task-info strong {
-      color: #fff;
+      color: #ffffff;
+      font-weight: 600;
     }
     .task-info small {
-      color: #999;
+      color: #9090b0;
     }
-    #previewWrap {
-      margin: 24px 0;
+    
+    .carousel-container {
+      position: relative;
+      margin: 40px 0;
     }
+    .carousel-counter {
+      text-align: center;
+      color: #9090b0;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+    }
+    .carousel-main {
+      position: relative;
+      background: rgba(10, 10, 10, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      overflow: hidden;
+      min-height: 500px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .carousel-slide {
+      display: none;
+      width: 100%;
+      animation: fadeIn 0.4s ease;
+    }
+    .carousel-slide.active {
+      display: block;
+    }
+    .carousel-slide img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 12px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .carousel-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(160, 160, 255, 0.15);
+      border: 1px solid rgba(160, 160, 255, 0.3);
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    .carousel-nav:hover {
+      background: rgba(160, 160, 255, 0.25);
+      border-color: rgba(160, 160, 255, 0.5);
+      transform: translateY(-50%) scale(1.1);
+    }
+    .carousel-nav.prev {
+      left: 20px;
+    }
+    .carousel-nav.next {
+      right: 20px;
+    }
+    .carousel-nav svg {
+      width: 28px;
+      height: 28px;
+      fill: #a0a0ff;
+    }
+    
+    .thumbnails {
+      display: flex;
+      gap: 16px;
+      margin-top: 20px;
+      overflow-x: auto;
+      padding: 12px 0;
+    }
+    .thumbnails::-webkit-scrollbar {
+      height: 8px;
+    }
+    .thumbnails::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+    }
+    .thumbnails::-webkit-scrollbar-thumb {
+      background: rgba(160, 160, 255, 0.3);
+      border-radius: 4px;
+    }
+    .thumbnail {
+      flex-shrink: 0;
+      width: 110px;
+      height: 110px;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      opacity: 0.4;
+    }
+    .thumbnail:hover {
+      opacity: 0.7;
+      transform: translateY(-2px);
+    }
+    .thumbnail.active {
+      border-color: #a0a0ff;
+      opacity: 1;
+      box-shadow: 0 4px 20px rgba(160, 160, 255, 0.3);
+    }
+    .thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
     .decision-section {
-      margin: 32px 0 24px 0;
+      margin: 40px 0 32px 0;
     }
     .decision-section h3 {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      color: #ffffff;
     }
     .radio-option {
       display: flex;
       align-items: center;
-      padding: 12px 0;
+      padding: 16px 20px;
+      margin: 12px 0;
       cursor: pointer;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+    }
+    .radio-option:hover {
+      background: rgba(160, 160, 255, 0.08);
+      border-color: rgba(160, 160, 255, 0.3);
     }
     .radio-option input[type="radio"] {
-      width: 20px;
-      height: 20px;
-      margin-right: 12px;
+      width: 22px;
+      height: 22px;
+      margin-right: 16px;
       cursor: pointer;
-      accent-color: #3b82f6;
+      accent-color: #a0a0ff;
     }
     .radio-option label {
       cursor: pointer;
       font-size: 16px;
+      font-weight: 500;
       user-select: none;
+      color: #e0e0f0;
     }
     .notes-section {
-      margin: 24px 0;
+      margin: 32px 0;
     }
     .notes-section label {
       display: block;
       font-size: 16px;
       font-weight: 600;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
+      color: #ffffff;
     }
     textarea {
       width: 100%;
-      background: #0a0a0a;
-      border: 1px solid #333;
+      background: rgba(10, 10, 10, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
-      padding: 14px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 14px;
+      padding: 16px;
+      color: #ffffff;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
       resize: vertical;
-      min-height: 120px;
+      min-height: 140px;
+      transition: all 0.3s ease;
     }
     textarea::placeholder {
-      color: #666;
+      color: #7070a0;
     }
     textarea:focus {
       outline: none;
-      border-color: #3b82f6;
+      border-color: rgba(160, 160, 255, 0.5);
+      background: rgba(10, 10, 10, 0.8);
+      box-shadow: 0 0 0 3px rgba(160, 160, 255, 0.1);
     }
     .actions {
       display: flex;
-      gap: 12px;
-      margin: 24px 0;
+      gap: 16px;
+      margin: 32px 0;
     }
     button {
-      padding: 12px 24px;
-      border-radius: 10px;
+      padding: 14px 32px;
+      border-radius: 12px;
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s ease;
+      font-family: 'Inter', sans-serif;
     }
     .btn-primary {
-      background: #1e40af;
+      background: linear-gradient(135deg, #6060ff 0%, #a0a0ff 100%);
       color: white;
       border: none;
+      box-shadow: 0 4px 20px rgba(96, 96, 255, 0.3);
     }
     .btn-primary:hover:not(:disabled) {
-      background: #1e3a8a;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(96, 96, 255, 0.4);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
     }
     .btn-primary:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
     .btn-secondary {
       background: transparent;
-      color: #999;
-      border: 1px solid #444;
+      color: #9090b0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
     .btn-secondary:hover {
-      border-color: #666;
-      color: #ccc;
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #d0d0e0;
+      background: rgba(255, 255, 255, 0.05);
     }
     .footer-text {
-      color: #666;
-      font-size: 13px;
-      margin-top: 16px;
+      color: #7070a0;
+      font-size: 14px;
+      margin-top: 24px;
+      text-align: center;
     }
   </style>
 </head>
@@ -267,7 +483,22 @@
         <p><small>Due: <span id="dueText">—</span></small></p>
       </div>
 
-      <div id="previewWrap"></div>
+      <div class="carousel-container">
+        <div class="carousel-counter" id="carouselCounter">
+          FILE <span id="currentSlide">1</span> OF <span id="totalSlides">1</span>
+        </div>
+        
+        <div class="carousel-main" id="carouselMain">
+          <div class="carousel-nav prev" onclick="changeSlide(-1)">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </div>
+          <div class="carousel-nav next" onclick="changeSlide(1)">
+            <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </div>
+        </div>
+        
+        <div class="thumbnails" id="thumbnails"></div>
+      </div>
 
       <form id="reviewForm">
         <div class="decision-section">
@@ -284,7 +515,7 @@
 
         <div class="notes-section">
           <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" placeholder="Optional notes (required if requesting changes)"></textarea>
+          <textarea id="notes" name="notes" placeholder="Share your feedback here..."></textarea>
         </div>
 
         <input type="hidden" id="taskId" name="taskId" value="">
@@ -298,7 +529,7 @@
           <button type="reset" class="btn-secondary" onclick="window.location.reload()">Reset</button>
         </div>
 
-        <p class="footer-text">Submitting will POST these fields to your webhook: decision, notes, taskId, title, client, due, preview.</p>
+        <p class="footer-text">Review all designs using the arrows or thumbnails before submitting your feedback.</p>
       </form>
     </div>
   </div>
