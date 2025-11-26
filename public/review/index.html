@@ -93,30 +93,42 @@
         }
         }
         
-        // Prepare form data
+        // Create hidden iframe for form submission (avoids CORS and new tab)
+        const iframe = document.createElement('iframe');
+        iframe.name = 'hidden_iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        
+        // Create temp form for submission
+        const tempForm = document.createElement('form');
+        tempForm.method = 'POST';
+        tempForm.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+        tempForm.target = 'hidden_iframe'; // Submit to hidden iframe
+        
         const formData = new FormData(form);
-        const data = {};
         for (let [key, value] of formData.entries()) {
-          data[key] = value;
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = value;
+          tempForm.appendChild(input);
         }
         
-        // Show success immediately (Zapier webhook might have CORS issues, but we don't care about the response)
-        document.body.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); color: #fff; font-family: 'Inter', sans-serif;">
-            <div style="text-align: center; max-width: 500px; padding: 40px;">
-              <div style="font-size: 64px; margin-bottom: 24px;">✅</div>
-              <h2 style="font-size: 32px; margin-bottom: 16px; font-weight: 700;">Review Submitted!</h2>
-              <p style="color: #9090b0; font-size: 18px; line-height: 1.6;">Your feedback has been sent to the team. You can close this page now.</p>
-            </div>
-          </div>
-        `;
+        document.body.appendChild(tempForm);
+        tempForm.submit();
         
-        // Send to Zapier in background (ignore response/errors)
-        fetch('https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/', {
-          method: 'POST',
-          body: JSON.stringify(data),
-          headers: { 'Content-Type': 'application/json' }
-        }).catch(() => {}); // Silently ignore errors
+        // Show success immediately
+        setTimeout(() => {
+          document.body.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); color: #fff; font-family: 'Inter', sans-serif;">
+              <div style="text-align: center; max-width: 500px; padding: 40px;">
+                <div style="font-size: 64px; margin-bottom: 24px;">✅</div>
+                <h2 style="font-size: 32px; margin-bottom: 16px; font-weight: 700;">Review Submitted!</h2>
+                <p style="color: #9090b0; font-size: 18px; line-height: 1.6;">Your feedback has been sent to the team. You can close this page now.</p>
+              </div>
+            </div>
+          `;
+        }, 500);
       });
     });
     
