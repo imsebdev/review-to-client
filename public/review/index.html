@@ -959,28 +959,39 @@
 
     // Send to Zapier webhook
     function sendToWebhook(data) {
-      // Zapier webhook URL
-      const webhookUrl = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+      // Create a hidden form to submit
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+      form.style.display = 'none';
 
-      fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-      })
-      .then(response => response.json())
-      .then(result => {
-        console.log('Success:', result);
-        showSuccessScreen();
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        showError('Failed to submit review. Please try again.');
-        document.getElementById('submitBtn').disabled = false;
-        document.getElementById('submitBtn').textContent = 'SEND REVIEW';
-        document.getElementById('mainCard').classList.remove('loading');
-      });
+      // Add all data as form fields
+      for (const key in data) {
+        if (key === 'selectedDesigns') {
+          // Convert array to comma-separated string
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = data[key].join(', ');
+          form.appendChild(input);
+        } else {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = data[key];
+          form.appendChild(input);
+        }
+      }
+
+      document.body.appendChild(form);
+      
+      // Show success immediately since form submission will navigate away
+      showSuccessScreen();
+      
+      // Submit form (this will POST to Zapier)
+      setTimeout(() => {
+        form.submit();
+      }, 500);
     }
 
     // Show success screen
