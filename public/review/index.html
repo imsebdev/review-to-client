@@ -959,17 +959,9 @@
 
     // Send to Zapier webhook
     function sendToWebhook(data) {
-      // Replace with your actual Zapier webhook URL
-      const webhookUrl = 'https://hooks.zapier.com/hooks/catch/YOUR_WEBHOOK_ID';
+      // Zapier webhook URL
+      const webhookUrl = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
 
-      // For demo, simulate API call
-      setTimeout(() => {
-        console.log('Review data:', data);
-        showSuccessScreen();
-      }, 1500);
-
-      // In production, uncomment this:
-      /*
       fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -989,7 +981,6 @@
         document.getElementById('submitBtn').textContent = 'SEND REVIEW';
         document.getElementById('mainCard').classList.remove('loading');
       });
-      */
     }
 
     // Show success screen
