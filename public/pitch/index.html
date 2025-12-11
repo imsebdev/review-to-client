@@ -673,6 +673,26 @@
         framerLink = '';
       }
       
+      // Format the created date to be human-readable
+      let formattedDate = created;
+      // Check if it's a timestamp (number)
+      if (!isNaN(created) && created.length > 10) {
+        const date = new Date(parseInt(created));
+        formattedDate = date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      } else if (created.includes('-')) {
+        // If it's already in YYYY-MM-DD format
+        const date = new Date(created);
+        formattedDate = date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      
       // Parse preview URLs (comma-separated)
       let previewUrls = [];
       if (preview) {
@@ -695,7 +715,7 @@
         taskId: taskId,
         title: 'Pitch Review', // Static title
         client: client,
-        created: created,
+        created: formattedDate,
         framerLink: framerLink,
         designs: previewUrls.map((url, index) => ({
           id: index,
@@ -706,6 +726,12 @@
 
       // Populate page with data
       populatePage();
+      
+      // Set up download all button
+      document.getElementById('downloadAll').addEventListener('click', function(e) {
+        e.preventDefault();
+        downloadAllDesigns();
+      });
     });
 
     // Populate page with task data
@@ -965,6 +991,24 @@
     // Open image in modal (simple implementation)
     function openImageModal(imageUrl) {
       window.open(imageUrl, '_blank');
+    }
+
+    // Download all designs
+    function downloadAllDesigns() {
+      taskData.designs.forEach((design, index) => {
+        // Create a temporary link element
+        const link = document.createElement('a');
+        link.href = design.url;
+        link.download = design.filename;
+        link.target = '_blank';
+        
+        // Trigger download with a small delay between each
+        setTimeout(() => {
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, index * 300); // 300ms delay between each download
+      });
     }
   </script>
 </body>
