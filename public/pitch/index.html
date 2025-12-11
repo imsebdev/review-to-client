@@ -223,6 +223,117 @@
       color: #a0a0ff;
     }
 
+    /* Carousel Section */
+    .carousel-container {
+      margin-bottom: 30px;
+    }
+
+    .carousel-counter {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #a0a0ff;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+    }
+
+    .carousel-main {
+      position: relative;
+      width: 100%;
+      min-height: 400px;
+      max-height: 800px;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .carousel-slide {
+      display: none;
+      max-width: 100%;
+      max-height: 800px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .carousel-slide.active {
+      display: block;
+    }
+
+    .carousel-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(26, 26, 46, 0.9);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(160, 160, 255, 0.4);
+      color: #ffffff;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: all 0.3s;
+      z-index: 10;
+    }
+
+    .carousel-nav:hover {
+      background: rgba(160, 160, 255, 0.3);
+      border-color: rgba(160, 160, 255, 0.6);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-nav.prev {
+      left: 20px;
+    }
+
+    .carousel-nav.next {
+      right: 20px;
+    }
+
+    .carousel-nav svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    /* Thumbnails */
+    .thumbnails {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .thumbnail {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.3s;
+      opacity: 0.6;
+    }
+
+    .thumbnail:hover {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+
+    .thumbnail.active {
+      border-color: #a0a0ff;
+      opacity: 1;
+      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.4);
+    }
+
     /* Download Section */
     .download-all {
       display: inline-flex;
@@ -561,6 +672,28 @@
 
       <div class="divider"></div>
 
+      <!-- Carousel Section (shows when no Framer link) -->
+      <div class="carousel-container" id="carouselContainer" style="display: none;">
+        <div class="section-header">🖼️ DESIGN PREVIEW</div>
+        
+        <div class="carousel-counter" id="carouselCounter">
+          FILE <span id="currentSlide">1</span> OF <span id="totalSlides">1</span>
+        </div>
+        
+        <div class="carousel-main" id="carouselMain">
+          <div class="carousel-nav prev" onclick="changeSlide(-1)">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </div>
+          <div class="carousel-nav next" onclick="changeSlide(1)">
+            <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </div>
+        </div>
+        
+        <div class="thumbnails" id="thumbnails"></div>
+      </div>
+
+      <div class="divider"></div>
+
       <!-- Framer Preview Section -->
       <div class="framer-container">
         <div class="section-header">📱 ANIMATED PREVIEW</div>
@@ -581,8 +714,6 @@
         <div class="designs-grid" id="designsGrid">
           <!-- Design cards will be populated here by JavaScript -->
         </div>
-
-        <a href="#" class="download-all" id="downloadAll">📥 Download all designs</a>
       </div>
 
       <div class="divider"></div>
@@ -726,12 +857,6 @@
 
       // Populate page with data
       populatePage();
-      
-      // Set up download all button
-      document.getElementById('downloadAll').addEventListener('click', function(e) {
-        e.preventDefault();
-        downloadAllDesigns();
-      });
     });
 
     // Populate page with task data
@@ -743,19 +868,20 @@
       document.getElementById('projectName').textContent = `${taskData.client} - ${taskData.title}`;
       document.getElementById('createdDate').textContent = taskData.created;
       
-      // Update Framer embed - hide entire section if no link
+      // Show carousel OR Framer section (not both)
       if (taskData.framerLink) {
+        // Show Framer section
         document.getElementById('framerEmbed').src = taskData.framerLink;
         document.getElementById('fullscreenLink').href = taskData.framerLink;
         document.querySelector('.framer-container').style.display = 'block';
+        document.getElementById('carouselContainer').style.display = 'none';
       } else {
-        // Hide Framer section completely
+        // Hide Framer section, show carousel
         document.querySelector('.framer-container').style.display = 'none';
-        // Also hide the divider after Framer section
-        const dividers = document.querySelectorAll('.divider');
-        if (dividers.length > 0) {
-          dividers[0].style.display = 'none';
-        }
+        document.getElementById('carouselContainer').style.display = 'block';
+        
+        // Build carousel
+        buildCarousel();
       }
       
       // Update counters
@@ -770,6 +896,92 @@
         designsGrid.appendChild(designCard);
       });
     }
+
+    // Build carousel
+    function buildCarousel() {
+      const carouselMain = document.getElementById('carouselMain');
+      const thumbnails = document.getElementById('thumbnails');
+      
+      // Clear existing
+      const existingSlides = carouselMain.querySelectorAll('.carousel-slide');
+      existingSlides.forEach(slide => slide.remove());
+      thumbnails.innerHTML = '';
+      
+      // Update counter
+      document.getElementById('totalSlides').textContent = taskData.designs.length;
+      
+      // Create slides and thumbnails
+      taskData.designs.forEach((design, index) => {
+        // Create main slide
+        const img = document.createElement('img');
+        img.src = design.url;
+        img.className = 'carousel-slide';
+        img.alt = design.filename;
+        if (index === 0) img.classList.add('active');
+        carouselMain.appendChild(img);
+        
+        // Create thumbnail
+        const thumb = document.createElement('img');
+        thumb.src = design.url;
+        thumb.className = 'thumbnail';
+        thumb.alt = design.filename;
+        if (index === 0) thumb.classList.add('active');
+        thumb.onclick = () => goToSlide(index);
+        thumbnails.appendChild(thumb);
+      });
+      
+      // Hide nav arrows if only one slide
+      if (taskData.designs.length <= 1) {
+        carouselMain.querySelector('.prev').style.display = 'none';
+        carouselMain.querySelector('.next').style.display = 'none';
+      }
+    }
+
+    // Change slide
+    let currentSlideIndex = 0;
+    function changeSlide(direction) {
+      currentSlideIndex += direction;
+      
+      if (currentSlideIndex < 0) {
+        currentSlideIndex = taskData.designs.length - 1;
+      } else if (currentSlideIndex >= taskData.designs.length) {
+        currentSlideIndex = 0;
+      }
+      
+      updateCarousel();
+    }
+
+    // Go to specific slide
+    function goToSlide(index) {
+      currentSlideIndex = index;
+      updateCarousel();
+    }
+
+    // Update carousel display
+    function updateCarousel() {
+      const slides = document.querySelectorAll('.carousel-slide');
+      slides.forEach((slide, index) => {
+        slide.classList.toggle('active', index === currentSlideIndex);
+      });
+      
+      const thumbs = document.querySelectorAll('.thumbnail');
+      thumbs.forEach((thumb, index) => {
+        thumb.classList.toggle('active', index === currentSlideIndex);
+      });
+      
+      document.getElementById('currentSlide').textContent = currentSlideIndex + 1;
+    }
+
+    // Keyboard navigation for carousel
+    document.addEventListener('keydown', function(e) {
+      if (document.getElementById('carouselContainer').style.display !== 'none') {
+        if (e.key === 'ArrowLeft') {
+          changeSlide(-1);
+        } else if (e.key === 'ArrowRight') {
+          changeSlide(1);
+        }
+      }
+    });
 
     // Create design card HTML element
     function createDesignCard(design) {
@@ -991,19 +1203,6 @@
     // Open image in modal (simple implementation)
     function openImageModal(imageUrl) {
       window.open(imageUrl, '_blank');
-    }
-
-    // Download all designs
-    function downloadAllDesigns() {
-      // Open each design in a new tab (browsers allow this better than multiple downloads)
-      taskData.designs.forEach((design, index) => {
-        setTimeout(() => {
-          window.open(design.url, '_blank');
-        }, index * 500); // 500ms delay between each
-      });
-      
-      // Show a message
-      alert(`Opening ${taskData.designs.length} designs in new tabs. You can right-click each image and select "Save image as..." to download them.`);
     }
   </script>
 </body>
