@@ -663,54 +663,45 @@
     window.addEventListener('DOMContentLoaded', function() {
       // Get task ID from URL, or use default for demo
       const taskId = getUrlParameter('taskId') || 'DEMO-123';
+      const client = getUrlParameter('client') || 'ACME Corporation';
+      const created = getUrlParameter('created') || '2025-12-01';
+      const framerLink = getUrlParameter('framerLink') || '';
+      const preview = getUrlParameter('preview') || '';
       
-      // For demo purposes, load sample data
-      // In production, this would fetch from ClickUp API
-      loadSampleData(taskId);
-    });
+      // Parse preview URLs (comma-separated)
+      let previewUrls = [];
+      if (preview) {
+        previewUrls = preview.split(',').map(url => url.trim()).filter(url => url);
+      }
 
-    // Load sample data (replace with actual ClickUp API call)
-    function loadSampleData(taskId) {
-      // Sample data structure
+      // If no preview URLs, use demo images
+      if (previewUrls.length === 0) {
+        previewUrls = [
+          'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=600&fit=crop',
+          'https://images.unsplash.com/photo-1634942537034-2531766767d1?w=800&h=600&fit=crop',
+          'https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&h=600&fit=crop',
+          'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=800&h=600&fit=crop',
+          'https://images.unsplash.com/photo-1558655146-d09347e92766?w=800&h=600&fit=crop'
+        ];
+      }
+
+      // Build taskData from URL parameters
       taskData = {
         taskId: taskId,
-        title: 'Social Media Campaign Q1 2025',
-        client: 'ACME Corporation',
-        created: '2025-12-01',
-        framerLink: 'https://honest-group-084216.framer.app/',
-        framerViewLink: 'https://honest-group-084216.framer.app/',
-        designs: [
-          {
-            id: 1,
-            filename: 'Design_1_Hero_Banner.png',
-            url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=600&fit=crop'
-          },
-          {
-            id: 2,
-            filename: 'Design_2_Square_Post.png',
-            url: 'https://images.unsplash.com/photo-1634942537034-2531766767d1?w=800&h=600&fit=crop'
-          },
-          {
-            id: 3,
-            filename: 'Design_3_Story_Format.png',
-            url: 'https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&h=600&fit=crop'
-          },
-          {
-            id: 4,
-            filename: 'MVK_1_Red_Theme.png',
-            url: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=800&h=600&fit=crop'
-          },
-          {
-            id: 5,
-            filename: 'MVK_2_Blue_Theme.png',
-            url: 'https://images.unsplash.com/photo-1558655146-d09347e92766?w=800&h=600&fit=crop'
-          }
-        ]
+        title: 'Pitch Review', // Static title
+        client: client,
+        created: created,
+        framerLink: framerLink,
+        designs: previewUrls.map((url, index) => ({
+          id: index,
+          filename: `Design_${index + 1}.png`,
+          url: url
+        }))
       };
 
       // Populate page with data
       populatePage();
-    }
+    });
 
     // Populate page with task data
     function populatePage() {
