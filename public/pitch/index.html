@@ -665,8 +665,13 @@
       const taskId = getUrlParameter('taskId') || 'DEMO-123';
       const client = getUrlParameter('client') || 'ACME Corporation';
       const created = getUrlParameter('created') || '2025-12-01';
-      const framerLink = getUrlParameter('framerLink') || '';
+      let framerLink = getUrlParameter('framerLink') || '';
       const preview = getUrlParameter('preview') || '';
+      
+      // Clean framer link - treat empty, 'null', 'undefined' as no link
+      if (!framerLink || framerLink === 'null' || framerLink === 'undefined' || framerLink.trim() === '') {
+        framerLink = '';
+      }
       
       // Parse preview URLs (comma-separated)
       let previewUrls = [];
@@ -894,8 +899,9 @@
       // Prepare data
       const reviewData = {
         taskId: taskData.taskId,
+        client: taskData.client,
         decision: decision,
-        selectedDesigns: Array.from(selectedDesigns),
+        selectedDesigns: Array.from(selectedDesigns).map(id => taskData.designs[id].filename),
         comments: comments,
         timestamp: new Date().toISOString()
       };
@@ -911,37 +917,52 @@
 
     // Send data to Zapier webhook
     function sendToWebhook(data) {
-      // Replace this URL with your actual Zapier webhook
-      const webhookUrl = 'https://hooks.zapier.com/hooks/catch/YOUR_WEBHOOK_ID';
+      // Create hidden iframe for form submission
+      let iframe = document.getElementById('hidden-iframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'hidden-iframe';
+        iframe.name = 'hidden-iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+      }
+
+      // Create a hidden form to submit
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+      form.target = 'hidden-iframe'; // Submit to hidden iframe
+      form.style.display = 'none';
+
+      // Add all data as form fields
+      for (const key in data) {
+        if (key === 'selectedDesigns') {
+          // Convert array to comma-separated string
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = data[key].join(', ');
+          form.appendChild(input);
+        } else {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = data[key];
+          form.appendChild(input);
+        }
+      }
+
+      document.body.appendChild(form);
       
-      // For demo, simulate API call
+      // Submit form (this will POST to Zapier in hidden iframe)
+      form.submit();
+      
+      // Show success screen
       setTimeout(() => {
-        console.log('Review data:', data);
         showSuccessScreen();
-      }, 1500);
-      
-      // In production, uncomment this:
-      /*
-      fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-      })
-      .then(response => response.json())
-      .then(result => {
-        console.log('Success:', result);
-        showSuccessScreen();
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        showError('Failed to submit review. Please try again.');
-        document.getElementById('submitBtn').disabled = false;
-        document.getElementById('submitBtn').textContent = 'SUBMIT DECISION';
-        document.getElementById('mainCard').classList.remove('loading');
-      });
-      */
+        // Clean up
+        document.body.removeChild(form);
+      }, 500);
     }
 
     // Show success screen
