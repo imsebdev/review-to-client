@@ -862,8 +862,8 @@
       // If revise, check if comment is provided
       if (decision.value === 'revise') {
         const comment = document.getElementById('comments').value.trim();
-        if (comment.length < 10) {
-          showError('Please provide detailed feedback about what needs to change (minimum 10 characters)');
+        if (comment.length === 0) {
+          showError('Please provide feedback about what needs to change');
           return false;
         }
       }
