@@ -696,11 +696,31 @@
       // Get parameters from URL
       const taskId = getUrlParameter('taskId') || 'DEMO-456';
       const client = getUrlParameter('client') || 'ACME Corporation';
-      const created = getUrlParameter('created') || '2025-12-01';
+      let created = getUrlParameter('created') || '2025-12-01';
       const preview = getUrlParameter('preview') || '';
 
+      // Format the created date to be human-readable
+      let formattedDate = created;
+      // Check if it's a timestamp (number)
+      if (!isNaN(created) && created.length > 10) {
+        const date = new Date(parseInt(created));
+        formattedDate = date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      } else if (created.includes('-')) {
+        // If it's already in YYYY-MM-DD format
+        const date = new Date(created);
+        formattedDate = date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+
       // Store task data
-      taskData = { taskId, client, created };
+      taskData = { taskId, client, created: formattedDate };
 
       // Parse preview URLs (comma-separated)
       if (preview) {
@@ -972,7 +992,7 @@
       // Create a hidden form to submit
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+      form.action = 'https://hooks.zapier.com/hooks/catch/24121388/ufweclf/';
       form.target = 'hidden-iframe'; // Submit to hidden iframe
       form.style.display = 'none';
 
