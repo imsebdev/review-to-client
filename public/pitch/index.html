@@ -614,13 +614,13 @@
           </label>
         </div>
 
-        <!-- Comment Section (only visible when Revise is selected) -->
-        <div class="comment-section" id="commentSection">
-          <label for="comments">💬 What needs to change? (required)</label>
+        <!-- Comment Section (always visible, optional) -->
+        <div class="comment-section visible" id="commentSection">
+          <label for="comments">💬 Additional comments (optional)</label>
           <textarea 
             id="comments" 
             name="comments" 
-            placeholder="Please describe what changes are needed..."
+            placeholder="Add any feedback or notes here..."
             maxlength="500"
             oninput="updateCharCounter()"></textarea>
           <div class="char-counter" id="charCounter">0 / 500 characters</div>
@@ -811,14 +811,6 @@
       });
       event.currentTarget.classList.add('selected');
       
-      // Show/hide comment section
-      const commentSection = document.getElementById('commentSection');
-      if (decision === 'revise') {
-        commentSection.classList.add('visible');
-      } else {
-        commentSection.classList.remove('visible');
-      }
-      
       // Clear error
       hideError();
     }
@@ -857,15 +849,6 @@
       if (decision.value === 'approve' && selectedDesigns.size === 0) {
         showError('Please select at least one design to approve');
         return false;
-      }
-      
-      // If revise, check if comment is provided
-      if (decision.value === 'revise') {
-        const comment = document.getElementById('comments').value.trim();
-        if (comment.length === 0) {
-          showError('Please provide feedback about what needs to change');
-          return false;
-        }
       }
       
       return true;
