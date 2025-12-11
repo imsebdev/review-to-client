@@ -995,20 +995,15 @@
 
     // Download all designs
     function downloadAllDesigns() {
+      // Open each design in a new tab (browsers allow this better than multiple downloads)
       taskData.designs.forEach((design, index) => {
-        // Create a temporary link element
-        const link = document.createElement('a');
-        link.href = design.url;
-        link.download = design.filename;
-        link.target = '_blank';
-        
-        // Trigger download with a small delay between each
         setTimeout(() => {
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }, index * 300); // 300ms delay between each download
+          window.open(design.url, '_blank');
+        }, index * 500); // 500ms delay between each
       });
+      
+      // Show a message
+      alert(`Opening ${taskData.designs.length} designs in new tabs. You can right-click each image and select "Save image as..." to download them.`);
     }
   </script>
 </body>
