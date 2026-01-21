@@ -241,10 +241,9 @@
       position: relative;
       width: 100%;
       min-height: 400px;
-      max-height: 800px;
       background: #000;
       border-radius: 16px;
-      overflow: hidden;
+      overflow: auto;
       margin-bottom: 20px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       display: flex;
@@ -255,7 +254,6 @@
     .carousel-slide {
       display: none;
       max-width: 100%;
-      max-height: 800px;
       width: auto;
       height: auto;
       object-fit: contain;
@@ -706,6 +704,58 @@
       pointer-events: none;
     }
 
+    /* Lightbox Modal - New */
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+
+    .lightbox.active {
+      display: flex;
+    }
+
+    .lightbox-content {
+      max-width: 95%;
+      max-height: 95%;
+      object-fit: contain;
+      box-shadow: 0 0 50px rgba(160, 160, 255, 0.3);
+      border-radius: 8px;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      color: #ffffff;
+      font-size: 40px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 10000;
+      background: rgba(26, 26, 46, 0.8);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      border: 2px solid rgba(160, 160, 255, 0.4);
+    }
+
+    .lightbox-close:hover {
+      background: rgba(160, 160, 255, 0.3);
+      transform: scale(1.1);
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .card {
@@ -907,6 +957,12 @@
     </div>
   </div>
 
+  <!-- Lightbox Modal -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <span class="lightbox-close">&times;</span>
+    <img class="lightbox-content" id="lightboxImage" onclick="event.stopPropagation()">
+  </div>
+
   <script>
     // Global variables
     let taskData = {};
@@ -1046,6 +1102,8 @@
         img.src = design.url;
         img.className = 'carousel-slide';
         img.alt = design.filename;
+        img.style.cursor = 'zoom-in';
+        img.onclick = () => openImageModal(design.url);
         if (index === 0) img.classList.add('active');
         carouselMain.appendChild(img);
         
@@ -1383,6 +1441,37 @@
           input.name = key;
           input.value = data[key].join(', ');
           form.appendChild(input);
+        } else if (key === 'attachedFiles') {
+          // Parse the JSON and send each file as separate fields
+          if (data[key]) {
+            try {
+              const files = JSON.parse(data[key]);
+              files.forEach((file, index) => {
+                // Send file name
+                const nameInput = document.createElement('input');
+                nameInput.type = 'hidden';
+                nameInput.name = `file_${index + 1}_name`;
+                nameInput.value = file.name;
+                form.appendChild(nameInput);
+                
+                // Send file data (base64)
+                const dataInput = document.createElement('input');
+                dataInput.type = 'hidden';
+                dataInput.name = `file_${index + 1}_data`;
+                dataInput.value = file.data;
+                form.appendChild(dataInput);
+                
+                // Send file type
+                const typeInput = document.createElement('input');
+                typeInput.type = 'hidden';
+                typeInput.name = `file_${index + 1}_type`;
+                typeInput.value = file.type;
+                form.appendChild(typeInput);
+              });
+            } catch (e) {
+              console.error('Error parsing files:', e);
+            }
+          }
         } else {
           const input = document.createElement('input');
           input.type = 'hidden';
@@ -1421,8 +1510,24 @@
 
     // Open image in modal (simple implementation)
     function openImageModal(imageUrl) {
-      window.open(imageUrl, '_blank');
+      const lightbox = document.getElementById('lightbox');
+      const lightboxImage = document.getElementById('lightboxImage');
+      lightboxImage.src = imageUrl;
+      lightbox.classList.add('active');
     }
+
+    // Close lightbox
+    function closeLightbox() {
+      const lightbox = document.getElementById('lightbox');
+      lightbox.classList.remove('active');
+    }
+
+    // Close lightbox with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeLightbox();
+      }
+    });
   </script>
 </body>
 </html>
