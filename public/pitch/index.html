@@ -223,7 +223,7 @@
       color: #a0a0ff;
     }
 
-    /* Carousel Section */
+    /* Carousel Section - Updated for responsive images */
     .carousel-container {
       margin-bottom: 30px;
     }
@@ -413,7 +413,7 @@
       color: #e0e0ff;
     }
 
-    /* Comment Section */
+    /* Comment Section - Updated */
     .comment-section {
       margin-top: 24px;
       display: none;
@@ -465,12 +465,120 @@
       font-weight: 500;
     }
 
-    .char-counter.warning {
-      color: #f59e0b;
+    /* File Upload Section - New */
+    .file-upload-section {
+      margin-top: 20px;
     }
 
-    .char-counter.error {
-      color: #ef4444;
+    .file-upload-wrapper {
+      position: relative;
+    }
+
+    .file-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(42, 42, 60, 0.5);
+      backdrop-filter: blur(10px);
+      border: 2px dashed rgba(160, 160, 255, 0.3);
+      color: #a0a0ff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .file-upload-btn:hover {
+      background: rgba(160, 160, 255, 0.1);
+      border-color: rgba(160, 160, 255, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .file-upload-btn input[type="file"] {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      cursor: pointer;
+    }
+
+    .file-previews {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .file-preview {
+      position: relative;
+      background: rgba(42, 42, 60, 0.5);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px;
+      transition: all 0.3s;
+    }
+
+    .file-preview:hover {
+      border-color: rgba(160, 160, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .file-preview img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .file-preview-name {
+      font-size: 11px;
+      color: #d0d0e0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .file-preview-size {
+      font-size: 10px;
+      color: #888;
+    }
+
+    .file-preview-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(239, 68, 68, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      transition: all 0.2s;
+      z-index: 1;
+    }
+
+    .file-preview-remove:hover {
+      background: rgba(239, 68, 68, 1);
+      transform: scale(1.1);
+    }
+
+    .file-upload-hint {
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
     }
 
     /* Actions */
@@ -634,6 +742,10 @@
       .section-title {
         font-size: 24px;
       }
+
+      .file-previews {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      }
     }
   </style>
 </head>
@@ -745,16 +857,32 @@
           </label>
         </div>
 
-        <!-- Comment Section (always visible, optional) -->
+        <!-- Comment Section (always visible, optional) - Updated -->
         <div class="comment-section visible" id="commentSection">
           <label for="comments">💬 Additional comments (optional)</label>
           <textarea 
             id="comments" 
             name="comments" 
             placeholder="Add any feedback or notes here..."
-            maxlength="500"
             oninput="updateCharCounter()"></textarea>
-          <div class="char-counter" id="charCounter">0 / 500 characters</div>
+          <div class="char-counter" id="charCounter">0 characters</div>
+          
+          <!-- File Upload Section - New -->
+          <div class="file-upload-section">
+            <div class="file-upload-wrapper">
+              <label class="file-upload-btn">
+                📎 Attach Images (Optional)
+                <input 
+                  type="file" 
+                  id="fileUpload" 
+                  accept="image/*" 
+                  multiple 
+                  onchange="handleFileSelect(event)">
+              </label>
+            </div>
+            <div class="file-upload-hint">You can upload images to show us examples or reference materials</div>
+            <div class="file-previews" id="filePreviews"></div>
+          </div>
         </div>
       </div>
 
@@ -783,6 +911,7 @@
     // Global variables
     let taskData = {};
     let selectedDesigns = new Set();
+    let uploadedFiles = [];
 
     // Get URL parameters
     function getUrlParameter(name) {
@@ -1053,25 +1182,85 @@
       hideError();
     }
 
-    // Update character counter
+    // Update character counter - Updated to remove limit
     function updateCharCounter() {
       const textarea = document.getElementById('comments');
       const counter = document.getElementById('charCounter');
       const length = textarea.value.length;
       
-      counter.textContent = `${length} / 500 characters`;
+      counter.textContent = `${length} characters`;
+    }
+
+    // Handle file selection - New
+    function handleFileSelect(event) {
+      const files = event.target.files;
       
-      if (length > 450) {
-        counter.classList.add('warning');
-      } else {
-        counter.classList.remove('warning');
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert('Please select only image files');
+          continue;
+        }
+        
+        // Validate file size (10MB max)
+        if (file.size > 10 * 1024 * 1024) {
+          alert('File size must be less than 10MB: ' + file.name);
+          continue;
+        }
+        
+        // Add to uploadedFiles array
+        uploadedFiles.push(file);
+        
+        // Create preview
+        createFilePreview(file, uploadedFiles.length - 1);
       }
       
-      if (length >= 500) {
-        counter.classList.add('error');
-      } else {
-        counter.classList.remove('error');
+      // Reset input
+      event.target.value = '';
+    }
+
+    // Create file preview - New
+    function createFilePreview(file, index) {
+      const reader = new FileReader();
+      
+      reader.onload = function(e) {
+        const previewContainer = document.getElementById('filePreviews');
+        
+        const preview = document.createElement('div');
+        preview.className = 'file-preview';
+        preview.id = `file-preview-${index}`;
+        
+        preview.innerHTML = `
+          <button class="file-preview-remove" onclick="removeFile(${index})" type="button">×</button>
+          <img src="${e.target.result}" alt="${file.name}">
+          <div class="file-preview-name" title="${file.name}">${file.name}</div>
+          <div class="file-preview-size">${formatFileSize(file.size)}</div>
+        `;
+        
+        previewContainer.appendChild(preview);
+      };
+      
+      reader.readAsDataURL(file);
+    }
+
+    // Remove file - New
+    function removeFile(index) {
+      uploadedFiles[index] = null;
+      const preview = document.getElementById(`file-preview-${index}`);
+      if (preview) {
+        preview.remove();
       }
+    }
+
+    // Format file size - New
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
 
     // Validate form
@@ -1106,8 +1295,18 @@
       errorDiv.classList.remove('visible');
     }
 
-    // Submit review
-    function submitReview() {
+    // Convert file to base64 - New
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Submit review - Updated to handle file uploads
+    async function submitReview() {
       // Validate form
       if (!validateForm()) {
         return;
@@ -1117,6 +1316,29 @@
       const decision = document.querySelector('input[name="decision"]:checked').value;
       const comments = document.getElementById('comments').value.trim();
       
+      // Show loading state
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').textContent = 'SUBMITTING...';
+      document.getElementById('mainCard').classList.add('loading');
+      
+      // Process uploaded files
+      const fileData = [];
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        if (uploadedFiles[i] !== null) {
+          try {
+            const base64 = await fileToBase64(uploadedFiles[i]);
+            fileData.push({
+              name: uploadedFiles[i].name,
+              size: uploadedFiles[i].size,
+              type: uploadedFiles[i].type,
+              data: base64
+            });
+          } catch (error) {
+            console.error('Error converting file:', error);
+          }
+        }
+      }
+      
       // Prepare data
       const reviewData = {
         taskId: taskData.taskId,
@@ -1124,13 +1346,10 @@
         decision: decision,
         selectedDesigns: Array.from(selectedDesigns).map(id => taskData.designs[id].filename),
         comments: comments,
+        attachedFiles: fileData.length > 0 ? JSON.stringify(fileData) : '',
+        fileCount: fileData.length,
         timestamp: new Date().toISOString()
       };
-      
-      // Show loading state
-      document.getElementById('submitBtn').disabled = true;
-      document.getElementById('submitBtn').textContent = 'SUBMITTING...';
-      document.getElementById('mainCard').classList.add('loading');
       
       // Send to webhook (replace with your actual Zapier webhook URL)
       sendToWebhook(reviewData);
