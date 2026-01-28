@@ -1353,11 +1353,15 @@
       errorDiv.classList.remove('visible');
     }
 
-    // Convert file to base64 - New
+    // Convert file to base64 - UPDATED WITH FIX
     function fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = () => {
+          // Remove the "data:image/...;base64," prefix for ClickUp compatibility
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
@@ -1454,7 +1458,7 @@
                 nameInput.value = file.name;
                 form.appendChild(nameInput);
                 
-                // Send file data (base64)
+                // Send file data (base64 - already cleaned, no prefix)
                 const dataInput = document.createElement('input');
                 dataInput.type = 'hidden';
                 dataInput.name = `file_${index + 1}_data`;
