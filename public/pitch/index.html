@@ -7,9 +7,92 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- jsPDF for PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
+    /* ============================================
+       PRINT STYLES — one image per page
+    ============================================ */
+    @media print {
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      /* Hide everything except print images */
+      .header,
+      .message-banner,
+      .download-files-section,
+      .carousel-container,
+      .framer-container,
+      .designs-grid,
+      .selection-counter,
+      .decision-section,
+      .actions,
+      .status-text,
+      .success-screen,
+      .lightbox,
+      .pdf-progress,
+      .divider,
+      .section-header,
+      .carousel-counter,
+      .thumbnails,
+      .pdf-download-row,
+      .section-title,
+      .project-info,
+      .task-badge {
+        display: none !important;
+      }
+
+      .card {
+        background: #fff !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+      }
+
+      .container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      /* Print image pages */
+      .print-pages {
+        display: block !important;
+      }
+
+      .print-page {
+        page-break-after: always;
+        break-after: page;
+        width: 100%;
+        height: 100vh;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        padding: 10mm;
+        box-sizing: border-box;
+        background: #fff;
+      }
+
+      .print-page:last-child {
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .print-page img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+    }
+
+    /* Print pages hidden on screen */
+    .print-pages {
+      display: none;
+    }
     * {
       margin: 0;
       padding: 0;
@@ -1066,7 +1149,7 @@
         <div class="pdf-download-row" id="pdfDownloadRow" style="margin-top: 20px;">
           <button type="button" class="btn-pdf" id="pdfBtn" onclick="generatePDF()">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>
-            Download All as PDF
+            Save as PDF
           </button>
         </div>
       </div>
@@ -1176,16 +1259,6 @@
   <div class="lightbox" id="lightbox" onclick="closeLightbox()">
     <span class="lightbox-close">&times;</span>
     <img class="lightbox-content" id="lightboxImage" onclick="event.stopPropagation()">
-  </div>
-
-  <!-- PDF Progress Overlay (NEW) -->
-  <div class="pdf-progress" id="pdfProgress">
-    <div class="pdf-progress-box">
-      <span class="pdf-progress-icon">📄</span>
-      <div class="pdf-progress-title">Generating PDF…</div>
-      <div class="pdf-progress-sub" id="pdfProgressSub">Loading images</div>
-      <div class="pdf-spinner"></div>
-    </div>
   </div>
 
   <script>
@@ -1441,108 +1514,33 @@
       if (e.key === 'Escape') closeLightbox();
     });
 
+
     // ============================================
-    // PDF GENERATION (NEW)
+    // PDF — print-based (no CORS issues)
     // ============================================
-    function loadImageAsDataURL(url) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width  = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.92), w: img.naturalWidth, h: img.naturalHeight });
-          } catch (e) {
-            resolve(null); // CORS blocked
-          }
-        };
-        img.onerror = () => resolve(null);
-        img.src = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+    function generatePDF() {
+      // Build hidden print pages from current designs
+      let printPages = document.getElementById('printPages');
+      if (!printPages) {
+        printPages = document.createElement('div');
+        printPages.id = 'printPages';
+        printPages.className = 'print-pages';
+        document.body.appendChild(printPages);
+      }
+
+      printPages.innerHTML = '';
+      taskData.designs.forEach((design) => {
+        const page = document.createElement('div');
+        page.className = 'print-page';
+        const img = document.createElement('img');
+        img.src = design.url;
+        img.alt = design.filename;
+        page.appendChild(img);
+        printPages.appendChild(page);
       });
-    }
 
-    async function generatePDF() {
-      if (!window.jspdf) {
-        alert('PDF library not loaded yet. Please try again in a moment.');
-        return;
-      }
-
-      const btn = document.getElementById('pdfBtn');
-      const progress = document.getElementById('pdfProgress');
-      const progressSub = document.getElementById('pdfProgressSub');
-
-      btn.disabled = true;
-      progress.classList.add('active');
-
-      try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const PAGE_W = 210;
-        const PAGE_H = 297;
-        const PADDING = 10;
-        const AVAILABLE_W = PAGE_W - PADDING * 2;
-        const AVAILABLE_H = PAGE_H - PADDING * 2;
-
-        let pagesAdded = 0;
-        let failedCount = 0;
-
-        for (let i = 0; i < taskData.designs.length; i++) {
-          const design = taskData.designs[i];
-          progressSub.textContent = `Processing image ${i + 1} of ${taskData.designs.length}…`;
-
-          const result = await loadImageAsDataURL(design.url);
-
-          if (!result) {
-            failedCount++;
-            continue;
-          }
-
-          if (pagesAdded > 0) doc.addPage();
-
-          const imgRatio   = result.w / result.h;
-          const pageRatio  = AVAILABLE_W / AVAILABLE_H;
-          let drawW, drawH, x, y;
-
-          if (imgRatio > pageRatio) {
-            drawW = AVAILABLE_W;
-            drawH = AVAILABLE_W / imgRatio;
-            x = PADDING;
-            y = PADDING + (AVAILABLE_H - drawH) / 2;
-          } else {
-            drawH = AVAILABLE_H;
-            drawW = AVAILABLE_H * imgRatio;
-            x = PADDING + (AVAILABLE_W - drawW) / 2;
-            y = PADDING;
-          }
-
-          doc.addImage(result.dataUrl, 'JPEG', x, y, drawW, drawH);
-          pagesAdded++;
-        }
-
-        if (pagesAdded === 0) {
-          progress.classList.remove('active');
-          btn.disabled = false;
-          alert('Could not load images for PDF. This is usually a permissions issue with the image source. Please try downloading images individually.');
-          return;
-        }
-
-        progressSub.textContent = 'Saving PDF…';
-        const clientName = taskData.client.replace(/https?:\/\//, '').replace(/[^a-zA-Z0-9]/g, '_');
-        doc.save(`SpiderAds-Pitch-${clientName}-${taskData.taskId}.pdf`);
-
-        if (failedCount > 0) {
-          alert(`PDF saved! Note: ${failedCount} image(s) could not be included due to permissions.`);
-        }
-      } catch (err) {
-        console.error('PDF error:', err);
-        alert('Something went wrong generating the PDF. Please try again.');
-      } finally {
-        progress.classList.remove('active');
-        btn.disabled = false;
-      }
+      // Small delay so images are ready, then open print dialog
+      setTimeout(() => { window.print(); }, 300);
     }
 
     // ============================================
