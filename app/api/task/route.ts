@@ -37,11 +37,12 @@ export async function GET(request: NextRequest) {
     const customFields = task.custom_fields || [];
 
     const getField = (names: string[]) => {
-      const field = customFields.find((f: any) =>
+      const matches = customFields.filter((f: any) =>
         names.some(n => f.name?.toLowerCase().includes(n.toLowerCase()))
       );
+      // Find the first match that actually has a value
+      const field = matches.find((f: any) => f.value !== null && f.value !== undefined && f.value !== '');
       if (!field) return '';
-      // ClickUp text fields can return value in different ways
       return field.value ?? field.value_richtext ?? '';
     };
 
