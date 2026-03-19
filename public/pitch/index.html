@@ -1339,7 +1339,6 @@
       const taskId   = getUrlParameter('taskId')   || 'DEMO-123';
       const client   = getUrlParameter('client')   || '';
       const created  = getUrlParameter('created')  || '2025-12-01';
-      const message  = getUrlParameter('message')  || '';
       const preview  = getUrlParameter('preview')  || '';
       let framerLink = getUrlParameter('framerLink') || '';
 
@@ -1351,11 +1350,11 @@
       // Format created date
       let formattedDate = created;
       if (!isNaN(created) && created.length > 10) {
-        formattedDate = new Date(parseInt(created)).toLocaleDateString('en-US', {
+        formattedDate = new Date(parseInt(created)).toLocaleDateString('sv-SE', {
           year: 'numeric', month: 'long', day: 'numeric'
         });
       } else if (created.includes('-')) {
-        formattedDate = new Date(created).toLocaleDateString('en-US', {
+        formattedDate = new Date(created).toLocaleDateString('sv-SE', {
           year: 'numeric', month: 'long', day: 'numeric'
         });
       }
@@ -1374,7 +1373,6 @@
         if (DOWNLOADABLE_EXTENSIONS.includes(ext)) {
           downloadableFiles.push({ url, ext, name: getFileNameFromUrl(url) });
         } else if (IMAGE_EXTENSIONS.includes(ext) || ext === '') {
-          // Only add to image carousel if it's a known image type
           imageUrls.push({ url, name: getFileNameFromUrl(url) });
         }
       });
@@ -1394,13 +1392,13 @@
         ];
       }
 
-      // Build taskData
+      // Build taskData with URL client as fallback
       taskData = {
         taskId,
         client,
         created: formattedDate,
         framerLink,
-        message,
+        message: '',
         designs: imageUrls.map((item, index) => ({
           id: index,
           filename: item.name || `Design_${index + 1}.png`,
@@ -1408,7 +1406,31 @@
         }))
       };
 
+      // Populate page immediately with what we have
       populatePage();
+
+      // Then fetch live data from ClickUp (message + company name)
+      if (taskId && taskId !== 'DEMO-123') {
+        fetch(`/api/task?taskId=${taskId}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (!data) return;
+
+            // Update message if we got one
+            if (data.message && data.message.trim() !== '') {
+              taskData.message = data.message;
+              document.getElementById('messageText').textContent = data.message;
+              document.getElementById('messageBanner').style.display = 'flex';
+            }
+
+            // Update company name if we got one and URL client was empty
+            if (data.companyName && data.companyName.trim() !== '') {
+              taskData.client = data.companyName;
+              document.getElementById('projectName').textContent = `${data.companyName} - Review`;
+            }
+          })
+          .catch(err => console.error('Could not fetch task data:', err));
+      }
     });
 
     // ============================================
