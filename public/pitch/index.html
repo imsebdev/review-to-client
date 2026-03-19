@@ -1803,6 +1803,8 @@
           fileFormData.append('taskId', taskData.taskId);
           fileFormData.append('fileCount', validFiles.length.toString());
           fileFormData.append('comments', comments);
+          fileFormData.append('decision', decision);
+          fileFormData.append('selectedDesigns', Array.from(selectedDesigns).map(id => taskData.designs[id as number].filename).join(', '));
           validFiles.forEach((file, i) => {
             fileFormData.append(`file_${i}`, file, file.name);
           });
