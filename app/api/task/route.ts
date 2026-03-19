@@ -40,18 +40,27 @@ export async function GET(request: NextRequest) {
       const field = customFields.find((f: any) =>
         names.some(n => f.name?.toLowerCase().includes(n.toLowerCase()))
       );
-      return field?.value || '';
+      if (!field) return '';
+      // ClickUp text fields can return value in different ways
+      return field.value ?? field.value_richtext ?? '';
     };
 
     // Pull message and company name from custom fields
-    const message     = getField(['message to client', 'meddelande', 'message']);
-    const companyName = getField(['company name', 'företag', 'client name', 'kund']);
+    const message     = getField(['message to client', 'message to seller', 'meddelande']);
+    const companyName = getField(['company name', 'företagsnamn', 'företag', 'client name', 'kund']);
+
+    // Debug: return all field names and values to help diagnose
+    const allFields = customFields.map((f: any) => ({
+      name: f.name,
+      value: f.value ?? f.value_richtext ?? ''
+    }));
 
     return NextResponse.json({
       taskId: task.id,
       taskName: task.name || '',
       message,
       companyName,
+      debug_fields: allFields,
     }, {
       headers: {
         'Access-Control-Allow-Origin': '*',
