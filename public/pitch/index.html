@@ -1116,15 +1116,6 @@
 
       <div class="divider"></div>
 
-      <!-- ============================================
-           DOWNLOADABLE FILES SECTION (NEW)
-           Shown only if ZIP/RAR/7z files are present
-      ============================================ -->
-      <div class="download-files-section" id="downloadFilesSection" style="display:none;">
-        <div class="section-header">📦 FILES FOR DOWNLOAD</div>
-        <div id="downloadFilesList"></div>
-        <div class="divider"></div>
-      </div>
 
       <!-- Carousel Section (shows when no Framer link) -->
       <div class="carousel-container" id="carouselContainer" style="display: none;">
@@ -1145,13 +1136,24 @@
 
         <div class="thumbnails" id="thumbnails"></div>
 
-        <!-- PDF DOWNLOAD BUTTON (NEW) — sits right below thumbnails -->
+        <!-- PDF DOWNLOAD BUTTON -->
         <div class="pdf-download-row" id="pdfDownloadRow" style="margin-top: 20px;">
           <button type="button" class="btn-pdf" id="pdfBtn" onclick="generatePDF()">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>
             Save as PDF
           </button>
         </div>
+      </div>
+
+      <!-- ============================================
+           DOWNLOADABLE FILES SECTION
+           Shown only if ZIP/RAR/7z/PDF files are present
+           Positioned AFTER design preview
+      ============================================ -->
+      <div class="download-files-section" id="downloadFilesSection" style="display:none;">
+        <div class="divider"></div>
+        <div class="section-header">📦 FILES FOR DOWNLOAD</div>
+        <div id="downloadFilesList"></div>
       </div>
 
       <div class="divider"></div>
@@ -1281,8 +1283,20 @@
     let imageUrls = [];        // image files → carousel + grid
     let downloadableFiles = []; // zip/rar/7z → download buttons
 
-    // Extensions treated as downloadable (not images)
-    const DOWNLOADABLE_EXTENSIONS = ['zip', 'rar', '7z', 'gz', 'tar'];
+    // Extensions treated as downloadable (not images) — including PDF
+    const DOWNLOADABLE_EXTENSIONS = ['zip', 'rar', '7z', 'gz', 'tar', 'pdf'];
+
+    // Image extensions allowed in carousel + PDF generation
+    const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'bmp', 'tiff'];
+
+    // Natural sort by trailing number in filename (e.g. MVK1 < MVK2 < MVK11)
+    function naturalSortByTrailingNumber(a, b) {
+      const getTrailingNum = str => {
+        const match = str.match(/(\d+)[^0-9]*$/);
+        return match ? parseInt(match[1], 10) : 0;
+      };
+      return getTrailingNum(a.name) - getTrailingNum(b.name);
+    }
 
     // ============================================
     // HELPERS
@@ -1323,7 +1337,7 @@
     // ============================================
     window.addEventListener('DOMContentLoaded', function () {
       const taskId   = getUrlParameter('taskId')   || 'DEMO-123';
-      const client   = getUrlParameter('client')   || 'ACME Corporation';
+      const client   = getUrlParameter('client')   || '';
       const created  = getUrlParameter('created')  || '2025-12-01';
       const message  = getUrlParameter('message')  || '';
       const preview  = getUrlParameter('preview')  || '';
@@ -1359,19 +1373,24 @@
         const ext = getFileExtension(url);
         if (DOWNLOADABLE_EXTENSIONS.includes(ext)) {
           downloadableFiles.push({ url, ext, name: getFileNameFromUrl(url) });
-        } else {
-          imageUrls.push(url);
+        } else if (IMAGE_EXTENSIONS.includes(ext) || ext === '') {
+          // Only add to image carousel if it's a known image type
+          imageUrls.push({ url, name: getFileNameFromUrl(url) });
         }
       });
 
-      // Fallback demo images if no image URLs
+      // Sort both lists by trailing number in filename
+      imageUrls.sort(naturalSortByTrailingNumber);
+      downloadableFiles.sort(naturalSortByTrailingNumber);
+
+      // Fallback demo images if nothing at all
       if (imageUrls.length === 0 && downloadableFiles.length === 0) {
         imageUrls = [
-          'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=600&fit=crop',
-          'https://images.unsplash.com/photo-1634942537034-2531766767d1?w=800&h=600&fit=crop',
-          'https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&h=600&fit=crop',
-          'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=800&h=600&fit=crop',
-          'https://images.unsplash.com/photo-1558655146-d09347e92766?w=800&h=600&fit=crop'
+          { url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=600&fit=crop', name: 'Demo_1.jpg' },
+          { url: 'https://images.unsplash.com/photo-1634942537034-2531766767d1?w=800&h=600&fit=crop', name: 'Demo_2.jpg' },
+          { url: 'https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&h=600&fit=crop', name: 'Demo_3.jpg' },
+          { url: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=800&h=600&fit=crop', name: 'Demo_4.jpg' },
+          { url: 'https://images.unsplash.com/photo-1558655146-d09347e92766?w=800&h=600&fit=crop', name: 'Demo_5.jpg' }
         ];
       }
 
@@ -1382,10 +1401,10 @@
         created: formattedDate,
         framerLink,
         message,
-        designs: imageUrls.map((url, index) => ({
+        designs: imageUrls.map((item, index) => ({
           id: index,
-          filename: getFileNameFromUrl(url) || `Design_${index + 1}.png`,
-          url
+          filename: item.name || `Design_${index + 1}.png`,
+          url: item.url
         }))
       };
 
@@ -1398,7 +1417,10 @@
     function populatePage() {
       // Header
       document.getElementById('taskBadge').textContent = `TASK: ${taskData.taskId}`;
-      document.getElementById('projectName').textContent = `${taskData.client} - Pitch Review`;
+      const displayName = (taskData.client && taskData.client.trim() !== '' && taskData.client !== 'null')
+        ? taskData.client.replace(/https?:\/\//, '').replace(/\/$/, '')
+        : 'SpiderAds';
+      document.getElementById('projectName').textContent = `${displayName} - Review`;
       document.getElementById('createdDate').textContent = taskData.created;
 
       // ── Personal Message (NEW) ──────────────────
