@@ -57,7 +57,15 @@ export async function POST(request: NextRequest) {
 
     // Post a comment on the task to notify the team
     if (uploadedCount > 0) {
-      const commentText = `📎 Kunden bifogade ${uploadedCount} fil${uploadedCount > 1 ? 'er' : ''} med sin feedback.`;
+      const fileNames = [];
+      for (let i = 0; i < fileCount; i++) {
+        const file = formData.get(`file_${i}`) as File | null;
+        if (file) fileNames.push(file.name);
+      }
+
+      const clientComment = formData.get('comments') as string || '';
+      const fileList = fileNames.map(n => `• ${n}`).join('\n');
+      const commentText = `📎 Kunden bifogade ${uploadedCount} fil${uploadedCount > 1 ? 'er' : ''} med sin feedback:\n${fileList}${clientComment ? `\n\n💬 Kundens kommentar:\n"${clientComment}"` : ''}`;
 
       await fetch(`https://api.clickup.com/api/v2/task/${taskId}/comment`, {
         method: 'POST',
