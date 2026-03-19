@@ -64,8 +64,31 @@ export async function POST(request: NextRequest) {
       }
 
       const clientComment = formData.get('comments') as string || '';
+      const decision = formData.get('decision') as string || '';
+      const selectedDesigns = formData.get('selectedDesigns') as string || '';
       const fileList = fileNames.map(n => `• ${n}`).join('\n');
-      const commentText = `📎 Kunden bifogade ${uploadedCount} fil${uploadedCount > 1 ? 'er' : ''} med sin feedback:\n${fileList}${clientComment ? `\n\n💬 Kundens kommentar:\n"${clientComment}"` : ''}`;
+
+      const decisionMap: Record<string, string> = {
+        approve: '✅ Godkänd',
+        revise:  '🔄 Revidering',
+        decline: '❌ Avböjd'
+      };
+
+      let commentText = '';
+
+      if (clientComment) {
+        commentText += `💬 Kundens kommentar:\n"${clientComment}"\n\n`;
+      }
+
+      commentText += `📎 Kunden bifogade ${uploadedCount} fil${uploadedCount > 1 ? 'er' : ''} med sin feedback:\n${fileList}`;
+
+      if (decision) {
+        commentText += `\n\n${decisionMap[decision] || decision}`;
+      }
+
+      if (selectedDesigns) {
+        commentText += `\n🖼️ Valda designer: ${selectedDesigns}`;
+      }
 
       await fetch(`https://api.clickup.com/api/v2/task/${taskId}/comment`, {
         method: 'POST',
