@@ -1802,6 +1802,7 @@
           const fileFormData = new FormData();
           fileFormData.append('taskId', taskData.taskId);
           fileFormData.append('fileCount', validFiles.length.toString());
+          fileFormData.append('comments', comments);
           validFiles.forEach((file, i) => {
             fileFormData.append(`file_${i}`, file, file.name);
           });
