@@ -20,14 +20,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Missing taskId or preview" }, { status: 400 });
   }
 
-  // Get existing task data
-  const existing = await kv.get<Record<string, unknown>>(`task:${taskId}`);
+  // Try pitch key first, fall back to review key
+  let existing = await kv.get<Record<string, unknown>>(`pitch:${taskId}`);
+  const isPitch = !!existing;
+
+  if (!existing) {
+    existing = await kv.get<Record<string, unknown>>(`task:${taskId}`);
+  }
+
   if (!existing) {
     return NextResponse.json({ ok: false, error: "Task not found" }, { status: 404 });
   }
 
+  const kvKey = isPitch ? `pitch:${taskId}` : `task:${taskId}`;
+
   // Silently swap the preview files, keep everything else
-  await kv.set(`task:${taskId}`, {
+  await kv.set(kvKey, {
     ...existing,
     preview,
     lastStealthUpdate: Date.now(),
