@@ -8,1051 +8,141 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ============================================
-       PRINT STYLES — one image per page
-    ============================================ */
     @media print {
-      body {
-        background: #ffffff !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-
-      /* Hide everything except print images */
-      .header,
-      .message-banner,
-      .download-files-section,
-      .carousel-container,
-      .framer-container,
-      .designs-grid,
-      .selection-counter,
-      .decision-section,
-      .actions,
-      .status-text,
-      .success-screen,
-      .lightbox,
-      .pdf-progress,
-      .divider,
-      .section-header,
-      .carousel-counter,
-      .thumbnails,
-      .pdf-download-row,
-      .section-title,
-      .project-info,
-      .task-badge {
-        display: none !important;
-      }
-
-      .card {
-        background: #fff !important;
-        border: none !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-      }
-
-      .container {
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-
-      /* Print image pages */
-      .print-pages {
-        display: block !important;
-      }
-
-      .print-page {
-        page-break-after: always;
-        break-after: page;
-        width: 100%;
-        height: 100vh;
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-        padding: 10mm;
-        box-sizing: border-box;
-        background: #fff;
-      }
-
-      .print-page:last-child {
-        page-break-after: avoid;
-        break-after: avoid;
-      }
-
-      .print-page img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-        display: block;
-      }
-    }
-
-    /* Print pages hidden on screen */
-    .print-pages {
-      display: none;
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-      color: #ffffff;
-      min-height: 100vh;
-      padding: 20px;
-      line-height: 1.6;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
-
-    .logo svg {
-      width: 168px;
-      height: auto;
-      margin-top: 20px;
-    }
-
-    .task-badge {
-      background: rgba(160, 160, 255, 0.15);
-      border: 1px solid rgba(160, 160, 255, 0.3);
-      padding: 10px 20px;
-      border-radius: 24px;
-      font-size: 13px;
-      color: #a0a0ff;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-    }
-
-    .card {
-      background: rgba(26, 26, 46, 0.6);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      padding: 40px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    }
-
-    .section-title {
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 12px;
-      background: linear-gradient(135deg, #ffffff 0%, #a0a0ff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .project-info {
-      color: #d0d0e0;
-      margin-bottom: 30px;
-    }
-
-    .project-info p {
-      margin: 5px 0;
-      font-size: 15px;
-    }
-
-    .project-info strong {
-      color: #ffffff;
-      font-weight: 600;
-    }
-
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent 0%, rgba(160, 160, 255, 0.3) 50%, transparent 100%);
-      margin: 30px 0;
-    }
-
-    .section-header {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: #e0e0ff;
-      letter-spacing: 0.3px;
-    }
-
-    /* ============================================
-       PERSONAL MESSAGE SECTION (NEW)
-    ============================================ */
-    .message-banner {
-      background: linear-gradient(135deg, rgba(160, 160, 255, 0.12) 0%, rgba(128, 128, 255, 0.08) 100%);
-      border: 1px solid rgba(160, 160, 255, 0.35);
-      border-radius: 16px;
-      padding: 20px 24px;
-      margin-bottom: 30px;
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
-    }
-
-    .message-avatar {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #a0a0ff, #8080ff);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(160, 160, 255, 0.3);
-    }
-
-    .message-content {
-      flex: 1;
-    }
-
-    .message-from {
-      font-size: 12px;
-      font-weight: 600;
-      color: #a0a0ff;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-
-    .message-text {
-      font-size: 15px;
-      color: #e0e0ff;
-      line-height: 1.6;
-      font-style: italic;
-    }
-
-    /* ============================================
-       DOWNLOADABLE FILES SECTION (NEW)
-    ============================================ */
-    .download-files-section {
-      margin-bottom: 30px;
-    }
-
-    .download-file-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-bottom: 12px;
-      transition: all 0.3s;
-    }
-
-    .download-file-card:hover {
-      border-color: rgba(160, 160, 255, 0.3);
-      background: rgba(42, 42, 60, 0.8);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    }
-
-    .download-file-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      background: rgba(160, 160, 255, 0.15);
-      border: 1px solid rgba(160, 160, 255, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      flex-shrink: 0;
-    }
-
-    .download-file-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .download-file-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: #e0e0ff;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .download-file-type {
-      font-size: 12px;
-      color: #888;
-      margin-top: 2px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .download-file-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: linear-gradient(135deg, rgba(160, 160, 255, 0.2), rgba(128, 128, 255, 0.1));
-      border: 1px solid rgba(160, 160, 255, 0.4);
-      color: #a0a0ff;
-      padding: 10px 18px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.3s;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .download-file-btn:hover {
-      background: linear-gradient(135deg, rgba(160, 160, 255, 0.35), rgba(128, 128, 255, 0.2));
-      border-color: rgba(160, 160, 255, 0.7);
-      color: #ffffff;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.25);
-    }
-
-    /* ============================================
-       PDF DOWNLOAD BUTTON (NEW)
-    ============================================ */
-    .pdf-download-row {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      margin-bottom: 20px;
-    }
-
-    .btn-pdf {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: linear-gradient(135deg, rgba(255, 100, 100, 0.15), rgba(220, 60, 60, 0.1));
-      border: 1px solid rgba(255, 100, 100, 0.35);
-      color: #ff9090;
-      padding: 11px 20px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: 'Inter', inherit;
-      cursor: pointer;
-      transition: all 0.3s;
-      letter-spacing: 0.3px;
-    }
-
-    .btn-pdf:hover {
-      background: linear-gradient(135deg, rgba(255, 100, 100, 0.25), rgba(220, 60, 60, 0.2));
-      border-color: rgba(255, 100, 100, 0.6);
-      color: #ffffff;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(255, 80, 80, 0.2);
-    }
-
-    .btn-pdf:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .btn-pdf svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    /* PDF progress overlay */
-    .pdf-progress {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.75);
-      backdrop-filter: blur(8px);
-      z-index: 99998;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .pdf-progress.active {
-      display: flex;
-    }
-
-    .pdf-progress-box {
-      background: rgba(26, 26, 46, 0.95);
-      border: 1px solid rgba(160, 160, 255, 0.3);
-      border-radius: 20px;
-      padding: 40px 48px;
-      text-align: center;
-      min-width: 280px;
-    }
-
-    .pdf-progress-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-      display: block;
-    }
-
-    .pdf-progress-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #e0e0ff;
-      margin-bottom: 8px;
-    }
-
-    .pdf-progress-sub {
-      font-size: 13px;
-      color: #888;
-    }
-
-    .pdf-spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid rgba(160, 160, 255, 0.2);
-      border-top-color: #a0a0ff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 16px auto 0;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* ============================================
-       ALL EXISTING STYLES BELOW — UNCHANGED
-    ============================================ */
-
-    /* Framer Preview Section */
-    .framer-container {
-      margin-bottom: 30px;
-    }
-
-    .framer-embed {
-      width: 100%;
-      height: 1400px;
-      border: none;
-      border-radius: 16px;
-      background: #000;
-      margin-bottom: 15px;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-
-    .fullscreen-link {
-      display: inline-block;
-      color: #a0a0ff;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s;
-      padding: 8px 0;
-    }
-
-    .fullscreen-link:hover {
-      color: #c0c0ff;
-      text-decoration: none;
-      transform: translateX(4px);
-    }
-
-    /* Design Selection Section */
-    .designs-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 24px;
-      margin-bottom: 24px;
-    }
-
-    .design-card {
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border-radius: 12px;
-      padding: 20px;
-      transition: all 0.3s;
-      border: 2px solid transparent;
-      cursor: pointer;
-    }
-
-    .design-card:hover {
-      border-color: rgba(160, 160, 255, 0.5);
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(160, 160, 255, 0.2);
-    }
-
-    .design-card.selected {
-      border-color: #a0a0ff;
-      background: rgba(160, 160, 255, 0.1);
-      box-shadow: 0 8px 24px rgba(160, 160, 255, 0.3);
-    }
-
-    .design-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 15px;
-      cursor: pointer;
-    }
-
-    .design-checkbox input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-      accent-color: #a0a0ff;
-    }
-
-    .design-checkbox label {
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      flex: 1;
-      word-break: break-word;
-      color: #e0e0ff;
-    }
-
-    .design-thumbnail {
-      width: 100%;
-      height: 200px;
-      object-fit: cover;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .design-thumbnail:hover {
-      transform: scale(1.03);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    }
-
-    .selection-counter {
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 14px 24px;
-      border-radius: 12px;
-      display: inline-block;
-      font-size: 14px;
-      margin-bottom: 24px;
-      color: #d0d0e0;
-      font-weight: 500;
-    }
-
-    .selection-counter.has-selection {
-      background: rgba(160, 160, 255, 0.15);
-      border-color: rgba(160, 160, 255, 0.3);
-      color: #a0a0ff;
-    }
-
-    /* Carousel Section */
-    .carousel-container {
-      margin-bottom: 30px;
-    }
-
-    .carousel-counter {
-      text-align: center;
-      font-size: 13px;
-      font-weight: 600;
-      color: #a0a0ff;
-      margin-bottom: 16px;
-      letter-spacing: 1px;
-    }
-
-    .carousel-main {
-      position: relative;
-      width: 100%;
-      min-height: 400px;
-      background: #000;
-      border-radius: 16px;
-      overflow: auto;
-      margin-bottom: 20px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .carousel-slide {
-      display: none;
-      max-width: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-    }
-
-    .carousel-slide.active {
-      display: block;
-    }
-
-    .carousel-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(26, 26, 46, 0.9);
-      backdrop-filter: blur(10px);
-      border: 2px solid rgba(160, 160, 255, 0.4);
-      color: #ffffff;
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      border-radius: 50%;
-      transition: all 0.3s;
-      z-index: 10;
-    }
-
-    .carousel-nav:hover {
-      background: rgba(160, 160, 255, 0.3);
-      border-color: rgba(160, 160, 255, 0.6);
-      transform: translateY(-50%) scale(1.1);
-    }
-
+      body { background: #ffffff !important; padding: 0 !important; margin: 0 !important; }
+      .header, .message-banner, .download-files-section, .carousel-container,
+      .framer-container, .designs-grid, .selection-counter, .decision-section,
+      .actions, .status-text, .success-screen, .lightbox, .pdf-progress,
+      .divider, .section-header, .carousel-counter, .thumbnails,
+      .pdf-download-row, .section-title, .project-info, .task-badge { display: none !important; }
+      .card { background: #fff !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; padding: 0 !important; border-radius: 0 !important; }
+      .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .print-pages { display: block !important; }
+      .print-page { page-break-after: always; break-after: page; width: 100%; height: 100vh; display: flex !important; align-items: center; justify-content: center; padding: 10mm; box-sizing: border-box; background: #fff; }
+      .print-page:last-child { page-break-after: avoid; break-after: avoid; }
+      .print-page img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+    }
+    .print-pages { display: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); color: #ffffff; min-height: 100vh; padding: 20px; line-height: 1.6; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .logo svg { width: 168px; height: auto; margin-top: 20px; }
+    .task-badge { background: rgba(160,160,255,0.15); border: 1px solid rgba(160,160,255,0.3); padding: 10px 20px; border-radius: 24px; font-size: 13px; color: #a0a0ff; font-weight: 500; letter-spacing: 0.5px; }
+    .card { background: rgba(26,26,46,0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .section-title { font-size: 32px; font-weight: 700; margin-bottom: 12px; background: linear-gradient(135deg, #ffffff 0%, #a0a0ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .project-info { color: #d0d0e0; margin-bottom: 30px; }
+    .project-info p { margin: 5px 0; font-size: 15px; }
+    .project-info strong { color: #ffffff; font-weight: 600; }
+    .divider { height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(160,160,255,0.3) 50%, transparent 100%); margin: 30px 0; }
+    .section-header { font-size: 18px; font-weight: 600; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; color: #e0e0ff; letter-spacing: 0.3px; }
+    .message-banner { background: linear-gradient(135deg, rgba(160,160,255,0.12) 0%, rgba(128,128,255,0.08) 100%); border: 1px solid rgba(160,160,255,0.35); border-radius: 16px; padding: 20px 24px; margin-bottom: 30px; display: flex; gap: 16px; align-items: flex-start; }
+    .message-avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #a0a0ff, #8080ff); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(160,160,255,0.3); }
+    .message-content { flex: 1; }
+    .message-from { font-size: 12px; font-weight: 600; color: #a0a0ff; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
+    .message-text { font-size: 15px; color: #e0e0ff; line-height: 1.6; font-style: italic; }
+    .download-files-section { margin-bottom: 30px; }
+    .download-file-card { display: flex; align-items: center; gap: 16px; background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; transition: all 0.3s; }
+    .download-file-card:hover { border-color: rgba(160,160,255,0.3); background: rgba(42,42,60,0.8); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .download-file-icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(160,160,255,0.15); border: 1px solid rgba(160,160,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .download-file-info { flex: 1; min-width: 0; }
+    .download-file-name { font-size: 14px; font-weight: 600; color: #e0e0ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .download-file-type { font-size: 12px; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .download-file-btn { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, rgba(160,160,255,0.2), rgba(128,128,255,0.1)); border: 1px solid rgba(160,160,255,0.4); color: #a0a0ff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.3s; white-space: nowrap; flex-shrink: 0; }
+    .download-file-btn:hover { background: linear-gradient(135deg, rgba(160,160,255,0.35), rgba(128,128,255,0.2)); border-color: rgba(160,160,255,0.7); color: #ffffff; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(160,160,255,0.25); }
+    .pdf-download-row { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 20px; }
+    .btn-pdf { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, rgba(255,100,100,0.15), rgba(220,60,60,0.1)); border: 1px solid rgba(255,100,100,0.35); color: #ff9090; padding: 11px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; font-family: 'Inter', inherit; cursor: pointer; transition: all 0.3s; letter-spacing: 0.3px; }
+    .btn-pdf:hover { background: linear-gradient(135deg, rgba(255,100,100,0.25), rgba(220,60,60,0.2)); border-color: rgba(255,100,100,0.6); color: #ffffff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,80,80,0.2); }
+    .btn-pdf:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-pdf svg { width: 16px; height: 16px; }
+    .pdf-progress { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 99998; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+    .pdf-progress.active { display: flex; }
+    .pdf-progress-box { background: rgba(26,26,46,0.95); border: 1px solid rgba(160,160,255,0.3); border-radius: 20px; padding: 40px 48px; text-align: center; min-width: 280px; }
+    .pdf-progress-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+    .pdf-progress-title { font-size: 16px; font-weight: 600; color: #e0e0ff; margin-bottom: 8px; }
+    .pdf-progress-sub { font-size: 13px; color: #888; }
+    .pdf-spinner { width: 36px; height: 36px; border: 3px solid rgba(160,160,255,0.2); border-top-color: #a0a0ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 16px auto 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .framer-container { margin-bottom: 30px; }
+    .framer-embed { width: 100%; height: 1400px; border: none; border-radius: 16px; background: #000; margin-bottom: 15px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .fullscreen-link { display: inline-block; color: #a0a0ff; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.2s; padding: 8px 0; }
+    .fullscreen-link:hover { color: #c0c0ff; transform: translateX(4px); }
+    .designs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px; }
+    .design-card { background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; transition: all 0.3s; border: 2px solid transparent; cursor: pointer; }
+    .design-card:hover { border-color: rgba(160,160,255,0.5); transform: translateY(-4px); box-shadow: 0 12px 32px rgba(160,160,255,0.2); }
+    .design-card.selected { border-color: #a0a0ff; background: rgba(160,160,255,0.1); box-shadow: 0 8px 24px rgba(160,160,255,0.3); }
+    .design-checkbox { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; cursor: pointer; }
+    .design-checkbox input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #a0a0ff; }
+    .design-checkbox label { font-size: 14px; font-weight: 500; cursor: pointer; flex: 1; word-break: break-word; color: #e0e0ff; }
+    .design-thumbnail { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer; transition: all 0.3s; border: 1px solid rgba(255,255,255,0.1); }
+    .design-thumbnail:hover { transform: scale(1.03); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .selection-counter { background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); padding: 14px 24px; border-radius: 12px; display: inline-block; font-size: 14px; margin-bottom: 24px; color: #d0d0e0; font-weight: 500; }
+    .selection-counter.has-selection { background: rgba(160,160,255,0.15); border-color: rgba(160,160,255,0.3); color: #a0a0ff; }
+    .carousel-container { margin-bottom: 30px; }
+    .carousel-counter { text-align: center; font-size: 13px; font-weight: 600; color: #a0a0ff; margin-bottom: 16px; letter-spacing: 1px; }
+    .carousel-main { position: relative; width: 100%; min-height: 400px; background: #000; border-radius: 16px; overflow: auto; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+    .carousel-slide { display: none; max-width: 100%; width: auto; height: auto; object-fit: contain; }
+    .carousel-slide.active { display: block; }
+    .carousel-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(26,26,46,0.9); backdrop-filter: blur(10px); border: 2px solid rgba(160,160,255,0.4); color: #ffffff; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 50%; transition: all 0.3s; z-index: 10; }
+    .carousel-nav:hover { background: rgba(160,160,255,0.3); border-color: rgba(160,160,255,0.6); transform: translateY(-50%) scale(1.1); }
     .carousel-nav.prev { left: 20px; }
     .carousel-nav.next { right: 20px; }
-
-    .carousel-nav svg {
-      width: 24px;
-      height: 24px;
-      fill: currentColor;
-    }
-
-    .thumbnails {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .thumbnail {
-      width: 100px;
-      height: 100px;
-      object-fit: cover;
-      border-radius: 8px;
-      cursor: pointer;
-      border: 3px solid transparent;
-      transition: all 0.3s;
-      opacity: 0.6;
-    }
-
-    .thumbnail:hover {
-      opacity: 1;
-      transform: scale(1.05);
-    }
-
-    .thumbnail.active {
-      border-color: #a0a0ff;
-      opacity: 1;
-      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.4);
-    }
-
-    /* Download Section */
-    .download-all {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #ffffff;
-      padding: 12px 24px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.3s;
-      margin-bottom: 30px;
-    }
-
-    .download-all:hover {
-      background: rgba(160, 160, 255, 0.15);
-      border-color: rgba(160, 160, 255, 0.3);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.2);
-    }
-
-    /* Decision Section */
+    .carousel-nav svg { width: 24px; height: 24px; fill: currentColor; }
+    .thumbnails { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .thumbnail { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 3px solid transparent; transition: all 0.3s; opacity: 0.6; }
+    .thumbnail:hover { opacity: 1; transform: scale(1.05); }
+    .thumbnail.active { border-color: #a0a0ff; opacity: 1; box-shadow: 0 4px 16px rgba(160,160,255,0.4); }
+    .download-all { display: inline-flex; align-items: center; gap: 8px; background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: #ffffff; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.3s; margin-bottom: 30px; }
+    .download-all:hover { background: rgba(160,160,255,0.15); border-color: rgba(160,160,255,0.3); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(160,160,255,0.2); }
     .decision-section { margin-top: 30px; }
-
-    .decision-section h3 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      color: #e0e0ff;
-      letter-spacing: 0.3px;
-    }
-
-    .radio-option {
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 2px solid rgba(255, 255, 255, 0.1);
-      padding: 18px 20px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .radio-option:hover {
-      background: rgba(42, 42, 60, 0.8);
-      border-color: rgba(160, 160, 255, 0.3);
-      transform: translateX(4px);
-    }
-
-    .radio-option.selected {
-      border-color: #a0a0ff;
-      background: rgba(160, 160, 255, 0.1);
-      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.2);
-    }
-
-    .radio-option input[type="radio"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-      accent-color: #a0a0ff;
-    }
-
-    .radio-option label {
-      cursor: pointer;
-      flex: 1;
-      font-size: 15px;
-      font-weight: 500;
-      color: #e0e0ff;
-    }
-
-    /* Comment Section */
-    .comment-section {
-      margin-top: 24px;
-      display: none;
-    }
-
+    .decision-section h3 { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: #e0e0ff; letter-spacing: 0.3px; }
+    .radio-option { background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.1); padding: 18px 20px; border-radius: 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.3s; }
+    .radio-option:hover { background: rgba(42,42,60,0.8); border-color: rgba(160,160,255,0.3); transform: translateX(4px); }
+    .radio-option.selected { border-color: #a0a0ff; background: rgba(160,160,255,0.1); box-shadow: 0 4px 16px rgba(160,160,255,0.2); }
+    .radio-option input[type="radio"] { width: 20px; height: 20px; cursor: pointer; accent-color: #a0a0ff; }
+    .radio-option label { cursor: pointer; flex: 1; font-size: 15px; font-weight: 500; color: #e0e0ff; }
+    .comment-section { margin-top: 24px; display: none; }
     .comment-section.visible { display: block; }
-
-    .comment-section label {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 10px;
-      color: #d0d0e0;
-      font-weight: 500;
-    }
-
-    .comment-section textarea {
-      width: 100%;
-      min-height: 120px;
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 2px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 14px;
-      color: #ffffff;
-      font-family: 'Inter', inherit;
-      font-size: 14px;
-      resize: vertical;
-      transition: all 0.3s;
-    }
-
-    .comment-section textarea:focus {
-      outline: none;
-      border-color: #a0a0ff;
-      background: rgba(42, 42, 60, 0.8);
-      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.15);
-    }
-
+    .comment-section label { display: block; font-size: 14px; margin-bottom: 10px; color: #d0d0e0; font-weight: 500; }
+    .comment-section textarea { width: 100%; min-height: 120px; background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; color: #ffffff; font-family: 'Inter', inherit; font-size: 14px; resize: vertical; transition: all 0.3s; }
+    .comment-section textarea:focus { outline: none; border-color: #a0a0ff; background: rgba(42,42,60,0.8); box-shadow: 0 4px 16px rgba(160,160,255,0.15); }
     .comment-section textarea::placeholder { color: #888; }
-
-    .char-counter {
-      text-align: right;
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-      font-weight: 500;
-    }
-
-    /* File Upload Section */
+    .char-counter { text-align: right; font-size: 12px; color: #888; margin-top: 8px; font-weight: 500; }
     .file-upload-section { margin-top: 20px; }
-
     .file-upload-wrapper { position: relative; }
-
-    .file-upload-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 2px dashed rgba(160, 160, 255, 0.3);
-      color: #a0a0ff;
-      padding: 12px 20px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .file-upload-btn:hover {
-      background: rgba(160, 160, 255, 0.1);
-      border-color: rgba(160, 160, 255, 0.5);
-      transform: translateY(-2px);
-    }
-
-    .file-upload-btn input[type="file"] {
-      position: absolute;
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      cursor: pointer;
-    }
-
-    .file-previews {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    .file-preview {
-      position: relative;
-      background: rgba(42, 42, 60, 0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      padding: 8px;
-      transition: all 0.3s;
-    }
-
-    .file-preview:hover {
-      border-color: rgba(160, 160, 255, 0.3);
-      transform: translateY(-2px);
-    }
-
-    .file-preview img {
-      width: 100%;
-      height: 120px;
-      object-fit: cover;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-
-    .file-preview-name {
-      font-size: 11px;
-      color: #d0d0e0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 4px;
-    }
-
+    .file-upload-btn { display: inline-flex; align-items: center; gap: 8px; background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 2px dashed rgba(160,160,255,0.3); color: #a0a0ff; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s; }
+    .file-upload-btn:hover { background: rgba(160,160,255,0.1); border-color: rgba(160,160,255,0.5); transform: translateY(-2px); }
+    .file-upload-btn input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; }
+    .file-previews { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 16px; }
+    .file-preview { position: relative; background: rgba(42,42,60,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; transition: all 0.3s; }
+    .file-preview:hover { border-color: rgba(160,160,255,0.3); transform: translateY(-2px); }
+    .file-preview img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
+    .file-preview-name { font-size: 11px; color: #d0d0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
     .file-preview-size { font-size: 10px; color: #888; }
-
-    .file-preview-remove {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background: rgba(239, 68, 68, 0.9);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 16px;
-      line-height: 1;
-      transition: all 0.2s;
-      z-index: 1;
-    }
-
-    .file-preview-remove:hover {
-      background: rgba(239, 68, 68, 1);
-      transform: scale(1.1);
-    }
-
-    .file-upload-hint {
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-    }
-
-    /* Actions */
-    .actions {
-      margin-top: 32px;
-      display: flex;
-      gap: 16px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #a0a0ff 0%, #8080ff 100%);
-      color: #ffffff;
-      border: none;
-      padding: 16px 36px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      cursor: pointer;
-      transition: all 0.3s;
-      box-shadow: 0 4px 16px rgba(160, 160, 255, 0.3);
-      letter-spacing: 0.3px;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(160, 160, 255, 0.4);
-      background: linear-gradient(135deg, #b0b0ff 0%, #9090ff 100%);
-    }
-
-    .btn-primary:disabled {
-      background: #333;
-      cursor: not-allowed;
-      opacity: 0.5;
-      box-shadow: none;
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: #d0d0e0;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      padding: 14px 36px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 500;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-
-    .btn-secondary:hover {
-      border-color: rgba(160, 160, 255, 0.4);
-      color: #a0a0ff;
-      background: rgba(160, 160, 255, 0.05);
-    }
-
-    .status-text {
-      color: #888;
-      font-size: 14px;
-      margin-top: 24px;
-      text-align: center;
-      font-weight: 500;
-    }
-
-    /* Success Screen */
-    .success-screen {
-      display: none;
-      text-align: center;
-      padding: 80px 40px;
-    }
-
+    .file-preview-remove { position: absolute; top: 4px; right: 4px; background: rgba(239,68,68,0.9); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.2s; z-index: 1; }
+    .file-preview-remove:hover { background: rgba(239,68,68,1); transform: scale(1.1); }
+    .file-upload-hint { font-size: 12px; color: #888; margin-top: 8px; }
+    .actions { margin-top: 32px; display: flex; gap: 16px; }
+    .btn-primary { background: linear-gradient(135deg, #a0a0ff 0%, #8080ff 100%); color: #ffffff; border: none; padding: 16px 36px; border-radius: 12px; font-size: 16px; font-weight: 600; font-family: 'Inter', inherit; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 16px rgba(160,160,255,0.3); letter-spacing: 0.3px; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(160,160,255,0.4); background: linear-gradient(135deg, #b0b0ff 0%, #9090ff 100%); }
+    .btn-primary:disabled { background: #333; cursor: not-allowed; opacity: 0.5; box-shadow: none; }
+    .btn-secondary { background: transparent; color: #d0d0e0; border: 2px solid rgba(255,255,255,0.2); padding: 14px 36px; border-radius: 12px; font-size: 16px; font-weight: 500; font-family: 'Inter', inherit; cursor: pointer; transition: all 0.3s; }
+    .btn-secondary:hover { border-color: rgba(160,160,255,0.4); color: #a0a0ff; background: rgba(160,160,255,0.05); }
+    .status-text { color: #888; font-size: 14px; margin-top: 24px; text-align: center; font-weight: 500; }
+    .success-screen { display: none; text-align: center; padding: 80px 40px; }
     .success-screen.visible { display: block; }
-
-    .success-icon {
-      font-size: 72px;
-      margin-bottom: 24px;
-      filter: drop-shadow(0 4px 16px rgba(160, 160, 255, 0.4));
-    }
-
-    .success-title {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      background: linear-gradient(135deg, #ffffff 0%, #a0a0ff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .success-message {
-      color: #d0d0e0;
-      margin-bottom: 24px;
-      font-size: 16px;
-      line-height: 1.6;
-    }
-
-    .success-reference {
-      color: #a0a0ff;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    /* Error Message */
-    .error-message {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      border-radius: 12px;
-      padding: 14px 18px;
-      color: #ef4444;
-      font-size: 14px;
-      margin-bottom: 24px;
-      display: none;
-      font-weight: 500;
-    }
-
+    .success-icon { font-size: 72px; margin-bottom: 24px; filter: drop-shadow(0 4px 16px rgba(160,160,255,0.4)); }
+    .success-title { font-size: 28px; font-weight: 700; margin-bottom: 16px; background: linear-gradient(135deg, #ffffff 0%, #a0a0ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .success-message { color: #d0d0e0; margin-bottom: 24px; font-size: 16px; line-height: 1.6; }
+    .success-reference { color: #a0a0ff; font-size: 14px; font-weight: 500; }
+    .error-message { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 14px 18px; color: #ef4444; font-size: 14px; margin-bottom: 24px; display: none; font-weight: 500; }
     .error-message.visible { display: block; }
-
     .loading { opacity: 0.6; pointer-events: none; }
-
-    /* Lightbox Modal */
-    .lightbox {
-      display: none;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.95);
-      z-index: 9999;
-      align-items: center;
-      justify-content: center;
-      cursor: zoom-out;
-    }
-
+    .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; }
     .lightbox.active { display: flex; }
-
-    .lightbox-content {
-      max-width: 95%;
-      max-height: 95%;
-      object-fit: contain;
-      box-shadow: 0 0 50px rgba(160, 160, 255, 0.3);
-      border-radius: 8px;
-    }
-
-    .lightbox-close {
-      position: absolute;
-      top: 20px; right: 30px;
-      color: #ffffff;
-      font-size: 40px;
-      font-weight: bold;
-      cursor: pointer;
-      z-index: 10000;
-      background: rgba(26, 26, 46, 0.8);
-      width: 50px; height: 50px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s;
-      border: 2px solid rgba(160, 160, 255, 0.4);
-    }
-
-    .lightbox-close:hover {
-      background: rgba(160, 160, 255, 0.3);
-      transform: scale(1.1);
-    }
-
-    /* Responsive */
+    .lightbox-content { max-width: 95%; max-height: 95%; object-fit: contain; box-shadow: 0 0 50px rgba(160,160,255,0.3); border-radius: 8px; }
+    .lightbox-close { position: absolute; top: 20px; right: 30px; color: #ffffff; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 10000; background: rgba(26,26,46,0.8); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.3s; border: 2px solid rgba(160,160,255,0.4); }
+    .lightbox-close:hover { background: rgba(160,160,255,0.3); transform: scale(1.1); }
     @media (max-width: 768px) {
       .card { padding: 24px; }
       .header { flex-direction: column; align-items: flex-start; gap: 16px; }
@@ -1070,7 +160,6 @@
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
     <div class="header">
       <div class="logo">
         <svg width="280" height="56" viewBox="0 0 281 56" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1092,20 +181,13 @@
       <div class="task-badge" id="taskBadge">TASK: Laddar...</div>
     </div>
 
-    <!-- Main Card -->
     <div class="card" id="mainCard">
-
-      <!-- Project Header -->
       <h1 class="section-title">PITCH FÖRHANDSVISNING</h1>
       <div class="project-info">
         <p><strong>Projekt:</strong> <span id="projectName">Laddar...</span></p>
         <p><strong>Skapad:</strong> <span id="createdDate">Laddar...</span></p>
       </div>
 
-      <!-- ============================================
-           PERSONAL MESSAGE SECTION (NEW)
-           Hidden by default, shown if &message= is set
-      ============================================ -->
       <div class="message-banner" id="messageBanner" style="display:none;">
         <div class="message-avatar">💬</div>
         <div class="message-content">
@@ -1116,15 +198,11 @@
 
       <div class="divider"></div>
 
-
-      <!-- Carousel Section (shows when no Framer link) -->
       <div class="carousel-container" id="carouselContainer" style="display: none;">
         <div class="section-header">🖼️ DESIGNFÖRHANDSVISNING</div>
-
         <div class="carousel-counter" id="carouselCounter">
           FIL <span id="currentSlide">1</span> AV <span id="totalSlides">1</span>
         </div>
-
         <div class="carousel-main" id="carouselMain">
           <div class="carousel-nav prev" onclick="changeSlide(-1)">
             <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -1133,10 +211,7 @@
             <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
           </div>
         </div>
-
         <div class="thumbnails" id="thumbnails"></div>
-
-        <!-- PDF DOWNLOAD BUTTON -->
         <div class="pdf-download-row" id="pdfDownloadRow" style="margin-top: 20px;">
           <button type="button" class="btn-pdf" id="pdfBtn" onclick="generatePDF()">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>
@@ -1145,11 +220,6 @@
         </div>
       </div>
 
-      <!-- ============================================
-           DOWNLOADABLE FILES SECTION
-           Shown only if ZIP/RAR/7z/PDF files are present
-           Positioned AFTER design preview
-      ============================================ -->
       <div class="download-files-section" id="downloadFilesSection" style="display:none;">
         <div class="divider"></div>
         <div class="section-header">📦 FILER FÖR NEDLADDNING</div>
@@ -1158,7 +228,6 @@
 
       <div class="divider"></div>
 
-      <!-- Framer Preview Section -->
       <div class="framer-container">
         <div class="section-header">📱 ANIMERAD FÖRHANDSVISNING</div>
         <iframe id="framerEmbed" class="framer-embed" src="" title="Design Preview" allow="autoplay" scrolling="no"></iframe>
@@ -1167,67 +236,40 @@
 
       <div class="divider"></div>
 
-      <!-- Design Selection Section -->
       <div>
         <div class="section-header">🖼️ VÄLJ DESIGNER ATT GÅ VIDARE MED</div>
-
         <div id="selectionCounter" class="selection-counter">
           ✅ Du har valt <span id="selectedCount">0</span> av <span id="totalCount">0</span> designer
         </div>
-
         <div class="designs-grid" id="designsGrid"></div>
       </div>
 
       <div class="divider"></div>
 
-      <!-- Decision Section -->
       <div class="decision-section">
         <h3>DITT BESLUT</h3>
-
         <div class="error-message" id="errorMessage"></div>
-
         <div class="radio-option" onclick="selectDecision('approve')">
           <input type="radio" name="decision" id="approve" value="approve">
-          <label for="approve">
-            <div>Godkänn - Fortsätt med valda designer ✅</div>
-          </label>
+          <label for="approve"><div>Godkänn - Fortsätt med valda designer ✅</div></label>
         </div>
-
         <div class="radio-option" onclick="selectDecision('revise')">
           <input type="radio" name="decision" id="revise" value="revise">
-          <label for="revise">
-            <div>Revidera - Behöver ändringar innan godkännande 🔄</div>
-          </label>
+          <label for="revise"><div>Revidera - Behöver ändringar innan godkännande 🔄</div></label>
         </div>
-
         <div class="radio-option" onclick="selectDecision('decline')">
           <input type="radio" name="decision" id="decline" value="decline">
-          <label for="decline">
-            <div>Avböj - Inte rätt riktning ❌</div>
-          </label>
+          <label for="decline"><div>Avböj - Inte rätt riktning ❌</div></label>
         </div>
-
-        <!-- Comment Section -->
         <div class="comment-section visible" id="commentSection">
           <label for="comments">💬 Ytterligare kommentarer (valfritt)</label>
-          <textarea
-            id="comments"
-            name="comments"
-            placeholder="Lägg till feedback eller anteckningar här..."
-            oninput="updateCharCounter()"></textarea>
+          <textarea id="comments" name="comments" placeholder="Lägg till feedback eller anteckningar här..." oninput="updateCharCounter()"></textarea>
           <div class="char-counter" id="charCounter">0 tecken</div>
-
-          <!-- File Upload Section -->
           <div class="file-upload-section">
             <div class="file-upload-wrapper">
               <label class="file-upload-btn">
                 📎 Bifoga bilder (valfritt)
-                <input
-                  type="file"
-                  id="fileUpload"
-                  accept="image/*"
-                  multiple
-                  onchange="handleFileSelect(event)">
+                <input type="file" id="fileUpload" accept="image/*" multiple onchange="handleFileSelect(event)">
               </label>
             </div>
             <div class="file-upload-hint">Du kan ladda upp bilder för att visa oss exempel eller referensmaterial</div>
@@ -1236,34 +278,26 @@
         </div>
       </div>
 
-      <!-- Actions -->
       <div class="actions">
         <button type="button" class="btn-primary" id="submitBtn" onclick="submitReview()">SKICKA BESLUT</button>
         <button type="button" class="btn-secondary" onclick="resetForm()">ÅTERSTÄLL</button>
       </div>
-
       <p class="status-text">Status: Väntar på ditt svar</p>
     </div>
 
-    <!-- Success Screen -->
     <div class="card success-screen" id="successScreen">
       <div class="success-icon">✅</div>
       <h2 class="success-title">BESLUT SKICKAT</h2>
-      <p class="success-message">
-        Tack för din feedback!<br><br>
-        Vi har tagit emot ditt beslut och återkommer snart med nästa steg.
-      </p>
+      <p class="success-message">Tack för din feedback!<br><br>Vi har tagit emot ditt beslut och återkommer snart med nästa steg.</p>
       <p class="success-reference">Din referens: <span id="successTaskId">TASK ABC123</span></p>
     </div>
   </div>
 
-  <!-- Lightbox Modal -->
   <div class="lightbox" id="lightbox" onclick="closeLightbox()">
     <span class="lightbox-close">&times;</span>
     <img class="lightbox-content" id="lightboxImage" onclick="event.stopPropagation()">
   </div>
 
-  <!-- PDF Progress Overlay -->
   <div class="pdf-progress" id="pdfProgress">
     <div class="pdf-progress-box">
       <span class="pdf-progress-icon">📄</span>
@@ -1274,114 +308,88 @@
   </div>
 
   <script>
-    // ============================================
-    // GLOBAL STATE
-    // ============================================
+    // ── STATE ──────────────────────────────────────────
     let taskData = {};
     let selectedDesigns = new Set();
     let uploadedFiles = [];
-    let imageUrls = [];        // image files → carousel + grid
-    let downloadableFiles = []; // zip/rar/7z → download buttons
+    let imageUrls = [];
+    let downloadableFiles = [];
 
-    // Extensions treated as downloadable (not images) — including PDF
     const DOWNLOADABLE_EXTENSIONS = ['zip', 'rar', '7z', 'gz', 'tar', 'pdf'];
-
-    // Image extensions allowed in carousel + PDF generation
     const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'bmp', 'tiff'];
 
-    // Natural sort by trailing number in filename (e.g. MVK1 < MVK2 < MVK11)
     function naturalSortByTrailingNumber(a, b) {
-      const getTrailingNum = str => {
-        const match = str.match(/(\d+)[^0-9]*$/);
-        return match ? parseInt(match[1], 10) : 0;
-      };
-      return getTrailingNum(a.name) - getTrailingNum(b.name);
+      const getNum = s => { const m = s.name.match(/(\d+)[^0-9]*$/); return m ? parseInt(m[1], 10) : 0; };
+      return getNum(a) - getNum(b);
     }
 
-    // ============================================
-    // HELPERS
-    // ============================================
+    // ── HELPERS ────────────────────────────────────────
     function getUrlParameter(name) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(name);
+      return new URLSearchParams(window.location.search).get(name);
     }
 
     function getFileExtension(url) {
-      try {
-        // Strip query params before checking extension
-        const path = url.split('?')[0];
-        const parts = path.split('.');
-        return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
-      } catch (e) {
-        return '';
-      }
+      try { const p = url.split('?')[0].split('.'); return p.length > 1 ? p[p.length-1].toLowerCase() : ''; } catch(e) { return ''; }
     }
 
     function getFileNameFromUrl(url) {
-      try {
-        const path = url.split('?')[0];
-        const parts = path.split('/');
-        return decodeURIComponent(parts[parts.length - 1]);
-      } catch (e) {
-        return url;
-      }
+      try { return decodeURIComponent(url.split('?')[0].split('/').pop()); } catch(e) { return url; }
     }
 
     function getFileIcon(ext) {
-      const icons = { zip: '🗜️', rar: '🗜️', '7z': '🗜️', gz: '🗜️', tar: '📦' };
-      return icons[ext] || '📁';
+      return { zip: '🗜️', rar: '🗜️', '7z': '🗜️', gz: '🗜️', tar: '📦' }[ext] || '📁';
     }
 
-    // ============================================
-    // INIT
-    // ============================================
-    window.addEventListener('DOMContentLoaded', function () {
-      const taskId   = getUrlParameter('taskId')   || 'DEMO-123';
-      const client   = getUrlParameter('client')   || '';
-      const created  = getUrlParameter('created')  || '2025-12-01';
-      const preview  = getUrlParameter('preview')  || '';
-      let framerLink = getUrlParameter('framerLink') || '';
+    // ── INIT ───────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', async function () {
+      const taskId = getUrlParameter('taskId') || 'DEMO-123';
 
-      // Clean framer link
+      // 1. Try KV first (new clean URLs — stealth update compatible)
+      let kvData = null;
+      if (taskId && taskId !== 'DEMO-123') {
+        try {
+          const res = await fetch('/api/pitch-data?taskId=' + taskId);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.ok) kvData = json.data;
+          }
+        } catch (e) { /* fall through to URL params */ }
+      }
+
+      // 2. Read data — KV wins, URL params are fallback (keeps old links working)
+      const client   = (kvData && kvData.client)     ? kvData.client     : (getUrlParameter('client')   || '');
+      const created  = (kvData && kvData.created)    ? kvData.created    : (getUrlParameter('created')  || '2025-12-01');
+      const preview  = (kvData && kvData.preview)    ? kvData.preview    : (getUrlParameter('preview')  || '');
+      let framerLink = (kvData && kvData.framerLink) ? kvData.framerLink : (getUrlParameter('framerLink') || '');
+
       if (!framerLink || framerLink === 'null' || framerLink === 'undefined' || framerLink.trim() === '') {
         framerLink = '';
       }
 
-      // Format created date
+      // 3. Format date
       let formattedDate = created;
       if (!isNaN(created) && created.length > 10) {
-        formattedDate = new Date(parseInt(created)).toLocaleDateString('sv-SE', {
-          year: 'numeric', month: 'long', day: 'numeric'
-        });
+        formattedDate = new Date(parseInt(created)).toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });
       } else if (created.includes('-')) {
-        formattedDate = new Date(created).toLocaleDateString('sv-SE', {
-          year: 'numeric', month: 'long', day: 'numeric'
-        });
+        formattedDate = new Date(created).toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });
       }
 
-      // Parse all preview URLs and split into images vs downloadables
-      let allUrls = [];
-      if (preview) {
-        allUrls = preview.split(',').map(u => u.trim()).filter(u => u);
-      }
-
+      // 4. Parse preview URLs into images vs downloadables
+      let allUrls = preview ? preview.split(',').map(u => u.trim()).filter(Boolean) : [];
       imageUrls = [];
       downloadableFiles = [];
-
       allUrls.forEach(url => {
         const ext = getFileExtension(url);
         if (DOWNLOADABLE_EXTENSIONS.includes(ext)) {
           downloadableFiles.push({ url, ext, name: getFileNameFromUrl(url) });
-        } else if (IMAGE_EXTENSIONS.includes(ext) || ext === '') {
+        } else {
           imageUrls.push({ url, name: getFileNameFromUrl(url) });
         }
       });
-
-      // Sort both lists by trailing number in filename
       imageUrls.sort(naturalSortByTrailingNumber);
       downloadableFiles.sort(naturalSortByTrailingNumber);
 
-      // Fallback demo images if nothing at all
+      // Demo fallback
       if (imageUrls.length === 0 && downloadableFiles.length === 0) {
         imageUrls = [
           { url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=600&fit=crop', name: 'Demo_1.jpg' },
@@ -1392,89 +400,58 @@
         ];
       }
 
-      // Build taskData with URL client as fallback
       taskData = {
-        taskId,
-        client,
-        created: formattedDate,
-        framerLink,
-        message: '',
-        designs: imageUrls.map((item, index) => ({
-          id: index,
-          filename: item.name || `Design_${index + 1}.png`,
-          url: item.url
-        }))
+        taskId, client, created: formattedDate, framerLink, message: '',
+        designs: imageUrls.map((item, i) => ({ id: i, filename: item.name || `Design_${i+1}.png`, url: item.url }))
       };
 
-      // Populate page immediately with what we have
       populatePage();
 
-      // Then fetch live data from ClickUp (message + company name)
+      // 5. Fetch live ClickUp data (message + company name)
       if (taskId && taskId !== 'DEMO-123') {
         fetch(`/api/task?taskId=${taskId}`)
           .then(res => res.ok ? res.json() : null)
           .then(data => {
             if (!data) return;
-
-            // Update message if we got one
-            if (data.message && data.message.trim() !== '') {
+            if (data.message && data.message.trim()) {
               taskData.message = data.message;
               document.getElementById('messageText').textContent = data.message;
               document.getElementById('messageBanner').style.display = 'flex';
             }
-
-            // Update company name if we got one and URL client was empty
-            if (data.companyName && data.companyName.trim() !== '') {
+            if (data.companyName && data.companyName.trim()) {
               taskData.client = data.companyName;
-              document.getElementById('projectName').textContent = `${data.companyName} - Review`;
+              document.getElementById('projectName').textContent = data.companyName + ' - Review';
             }
           })
           .catch(err => console.error('Could not fetch task data:', err));
       }
     });
 
-    // ============================================
-    // POPULATE PAGE
-    // ============================================
+    // ── POPULATE ───────────────────────────────────────
     function populatePage() {
-      // Header
-      document.getElementById('taskBadge').textContent = `TASK: ${taskData.taskId}`;
-      const displayName = (taskData.client && taskData.client.trim() !== '' && taskData.client !== 'null')
-        ? taskData.client.replace(/https?:\/\//, '').replace(/\/$/, '')
-        : 'SpiderAds';
-      document.getElementById('projectName').textContent = `${displayName} - Review`;
+      document.getElementById('taskBadge').textContent = 'TASK: ' + taskData.taskId;
+      const displayName = (taskData.client && taskData.client.trim() && taskData.client !== 'null')
+        ? taskData.client.replace(/https?:\/\//, '').replace(/\/$/, '') : 'SpiderAds';
+      document.getElementById('projectName').textContent = displayName + ' - Review';
       document.getElementById('createdDate').textContent = taskData.created;
 
-      // ── Personal Message (NEW) ──────────────────
-      if (taskData.message && taskData.message.trim() !== '' &&
-          taskData.message !== 'null' && taskData.message !== 'undefined') {
+      if (taskData.message && taskData.message.trim() && taskData.message !== 'null') {
         document.getElementById('messageText').textContent = taskData.message;
         document.getElementById('messageBanner').style.display = 'flex';
       }
 
-      // ── Downloadable Files (NEW) ────────────────
       if (downloadableFiles.length > 0) {
         const list = document.getElementById('downloadFilesList');
         list.innerHTML = '';
         downloadableFiles.forEach(file => {
           const card = document.createElement('div');
           card.className = 'download-file-card';
-          card.innerHTML = `
-            <div class="download-file-icon">${getFileIcon(file.ext)}</div>
-            <div class="download-file-info">
-              <div class="download-file-name" title="${file.name}">${file.name}</div>
-              <div class="download-file-type">${file.ext.toUpperCase()} Arkiv</div>
-            </div>
-            <a href="${file.url}" class="download-file-btn" download target="_blank">
-              ⬇ Ladda ned
-            </a>
-          `;
+          card.innerHTML = `<div class="download-file-icon">${getFileIcon(file.ext)}</div><div class="download-file-info"><div class="download-file-name" title="${file.name}">${file.name}</div><div class="download-file-type">${file.ext.toUpperCase()} Arkiv</div></div><a href="${file.url}" class="download-file-btn" download target="_blank">⬇ Ladda ned</a>`;
           list.appendChild(card);
         });
         document.getElementById('downloadFilesSection').style.display = 'block';
       }
 
-      // ── Framer vs Carousel ──────────────────────
       if (taskData.framerLink) {
         document.getElementById('framerEmbed').src = taskData.framerLink;
         document.getElementById('fullscreenLink').href = taskData.framerLink;
@@ -1488,241 +465,131 @@
         }
       }
 
-      // ── Design selection grid ───────────────────
       document.getElementById('totalCount').textContent = taskData.designs.length;
-      const designsGrid = document.getElementById('designsGrid');
-      designsGrid.innerHTML = '';
-      taskData.designs.forEach(design => {
-        designsGrid.appendChild(createDesignCard(design));
-      });
-
-      // Hide PDF button if no images
-      if (taskData.designs.length === 0) {
-        document.getElementById('pdfDownloadRow').style.display = 'none';
-      }
+      const grid = document.getElementById('designsGrid');
+      grid.innerHTML = '';
+      taskData.designs.forEach(d => grid.appendChild(createDesignCard(d)));
+      if (taskData.designs.length === 0) document.getElementById('pdfDownloadRow').style.display = 'none';
     }
 
-    // ============================================
-    // CAROUSEL (UNCHANGED)
-    // ============================================
+    // ── CAROUSEL ───────────────────────────────────────
     function buildCarousel() {
-      const carouselMain = document.getElementById('carouselMain');
-      const thumbnails   = document.getElementById('thumbnails');
-
-      carouselMain.querySelectorAll('.carousel-slide').forEach(s => s.remove());
-      thumbnails.innerHTML = '';
+      const main = document.getElementById('carouselMain');
+      const thumbs = document.getElementById('thumbnails');
+      main.querySelectorAll('.carousel-slide').forEach(s => s.remove());
+      thumbs.innerHTML = '';
       document.getElementById('totalSlides').textContent = taskData.designs.length;
-
-      taskData.designs.forEach((design, index) => {
+      taskData.designs.forEach((design, i) => {
         const img = document.createElement('img');
-        img.src       = design.url;
-        img.className = 'carousel-slide';
-        img.alt       = design.filename;
-        img.style.cursor = 'zoom-in';
-        img.onclick = () => openImageModal(design.url);
-        if (index === 0) img.classList.add('active');
-        carouselMain.appendChild(img);
-
+        img.src = design.url; img.className = 'carousel-slide'; img.alt = design.filename;
+        img.style.cursor = 'zoom-in'; img.onclick = () => openImageModal(design.url);
+        if (i === 0) img.classList.add('active');
+        main.appendChild(img);
         const thumb = document.createElement('img');
-        thumb.src       = design.url;
-        thumb.className = 'thumbnail';
-        thumb.alt       = design.filename;
-        if (index === 0) thumb.classList.add('active');
-        thumb.onclick = () => goToSlide(index);
-        thumbnails.appendChild(thumb);
+        thumb.src = design.url; thumb.className = 'thumbnail'; thumb.alt = design.filename;
+        if (i === 0) thumb.classList.add('active');
+        thumb.onclick = () => goToSlide(i);
+        thumbs.appendChild(thumb);
       });
-
       if (taskData.designs.length <= 1) {
-        carouselMain.querySelector('.prev').style.display = 'none';
-        carouselMain.querySelector('.next').style.display = 'none';
+        main.querySelector('.prev').style.display = 'none';
+        main.querySelector('.next').style.display = 'none';
       }
     }
 
     let currentSlideIndex = 0;
-
-    function changeSlide(direction) {
-      currentSlideIndex += direction;
-      if (currentSlideIndex < 0) currentSlideIndex = taskData.designs.length - 1;
-      else if (currentSlideIndex >= taskData.designs.length) currentSlideIndex = 0;
-      updateCarousel();
-    }
-
-    function goToSlide(index) {
-      currentSlideIndex = index;
-      updateCarousel();
-    }
-
+    function changeSlide(dir) { currentSlideIndex = (currentSlideIndex + dir + taskData.designs.length) % taskData.designs.length; updateCarousel(); }
+    function goToSlide(i) { currentSlideIndex = i; updateCarousel(); }
     function updateCarousel() {
-      document.querySelectorAll('.carousel-slide').forEach((s, i) =>
-        s.classList.toggle('active', i === currentSlideIndex));
-      document.querySelectorAll('.thumbnail').forEach((t, i) =>
-        t.classList.toggle('active', i === currentSlideIndex));
+      document.querySelectorAll('.carousel-slide').forEach((s,i) => s.classList.toggle('active', i === currentSlideIndex));
+      document.querySelectorAll('.thumbnail').forEach((t,i) => t.classList.toggle('active', i === currentSlideIndex));
       document.getElementById('currentSlide').textContent = currentSlideIndex + 1;
     }
-
-    document.addEventListener('keydown', function (e) {
+    document.addEventListener('keydown', e => {
       if (document.getElementById('carouselContainer').style.display !== 'none') {
-        if (e.key === 'ArrowLeft')  changeSlide(-1);
+        if (e.key === 'ArrowLeft') changeSlide(-1);
         if (e.key === 'ArrowRight') changeSlide(1);
       }
       if (e.key === 'Escape') closeLightbox();
     });
 
-
-    // ============================================
-    // PDF — proxy-based jsPDF (no CORS, real download)
-    // ============================================
-
-    // Load jsPDF dynamically
+    // ── PDF ────────────────────────────────────────────
     function loadJsPDF() {
       return new Promise((resolve, reject) => {
         if (window.jspdf) { resolve(window.jspdf); return; }
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script.onload  = () => resolve(window.jspdf);
-        script.onerror = () => reject(new Error('Failed to load jsPDF'));
-        document.head.appendChild(script);
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = () => resolve(window.jspdf); s.onerror = () => reject(new Error('Failed to load jsPDF'));
+        document.head.appendChild(s);
       });
     }
 
-    // Fetch image via our server-side proxy (bypasses CORS)
     function fetchImageViaProxy(url) {
-      return new Promise((resolve) => {
-        const proxyUrl = '/api/proxy?url=' + encodeURIComponent(url);
+      return new Promise(resolve => {
         const img = new Image();
         img.onload = () => {
           try {
-            const canvas = document.createElement('canvas');
-            canvas.width  = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            resolve({
-              dataUrl: canvas.toDataURL('image/jpeg', 0.92),
-              w: img.naturalWidth,
-              h: img.naturalHeight
-            });
-          } catch (e) {
-            resolve(null);
-          }
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            resolve({ dataUrl: c.toDataURL('image/jpeg', 0.92), w: img.naturalWidth, h: img.naturalHeight });
+          } catch(e) { resolve(null); }
         };
         img.onerror = () => resolve(null);
-        img.src = proxyUrl;
+        img.src = '/api/proxy?url=' + encodeURIComponent(url);
       });
     }
 
     async function generatePDF() {
-      const btn         = document.getElementById('pdfBtn');
-      const progress    = document.getElementById('pdfProgress');
-      const progressSub = document.getElementById('pdfProgressSub');
-
-      btn.disabled = true;
-      progress.classList.add('active');
-
+      const btn = document.getElementById('pdfBtn');
+      const progress = document.getElementById('pdfProgress');
+      const sub = document.getElementById('pdfProgressSub');
+      btn.disabled = true; progress.classList.add('active');
       try {
-        progressSub.textContent = 'Laddar PDF-motor…';
-        const jspdfModule = await loadJsPDF();
-        const { jsPDF } = jspdfModule;
-
-        const PAGE_W      = 210;
-        const PAGE_H      = 297;
-        const PADDING     = 10;
-        const AVAILABLE_W = PAGE_W - PADDING * 2;
-        const AVAILABLE_H = PAGE_H - PADDING * 2;
-
+        sub.textContent = 'Laddar PDF-motor…';
+        const { jsPDF } = await loadJsPDF();
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        let pagesAdded = 0;
-        let failedCount = 0;
-
+        const PW = 190, PH = 277, PAD = 10;
+        let added = 0, failed = 0;
         for (let i = 0; i < taskData.designs.length; i++) {
-          const design = taskData.designs[i];
-          progressSub.textContent = `Bearbetar bild ${i + 1} of ${taskData.designs.length}…`;
-
-          const result = await fetchImageViaProxy(design.url);
-
-          if (!result) { failedCount++; continue; }
-          if (pagesAdded > 0) doc.addPage();
-
-          const imgRatio  = result.w / result.h;
-          const pageRatio = AVAILABLE_W / AVAILABLE_H;
-          let drawW, drawH, x, y;
-
-          if (imgRatio > pageRatio) {
-            drawW = AVAILABLE_W;
-            drawH = AVAILABLE_W / imgRatio;
-            x = PADDING;
-            y = PADDING + (AVAILABLE_H - drawH) / 2;
-          } else {
-            drawH = AVAILABLE_H;
-            drawW = AVAILABLE_H * imgRatio;
-            x = PADDING + (AVAILABLE_W - drawW) / 2;
-            y = PADDING;
-          }
-
-          doc.addImage(result.dataUrl, 'JPEG', x, y, drawW, drawH);
-          pagesAdded++;
+          sub.textContent = `Bearbetar bild ${i+1} av ${taskData.designs.length}…`;
+          const r = await fetchImageViaProxy(taskData.designs[i].url);
+          if (!r) { failed++; continue; }
+          if (added > 0) doc.addPage();
+          const ratio = r.w / r.h, pageRatio = PW / PH;
+          let dw, dh, x, y;
+          if (ratio > pageRatio) { dw = PW; dh = PW/ratio; x = PAD; y = PAD + (PH-dh)/2; }
+          else { dh = PH; dw = PH*ratio; x = PAD + (PW-dw)/2; y = PAD; }
+          doc.addImage(r.dataUrl, 'JPEG', x, y, dw, dh);
+          added++;
         }
-
-        if (pagesAdded === 0) {
-          alert('Kunde inte ladda bilder. Försök igen.');
-          return;
-        }
-
-        progressSub.textContent = 'Sparar…';
-        const clientName = taskData.client
-          .replace(/https?:\/\//, '')
-          .replace(/[^a-zA-Z0-9]/g, '_')
-          .replace(/_+/g, '_')
-          .replace(/^_|_$/g, '');
-        doc.save(`SpiderAds-Pitch-${clientName}-${taskData.taskId}.pdf`);
-
-        if (failedCount > 0) {
-          alert(`PDF saved! Note: ${failedCount} image(s) could not be included.`);
-        }
-
-      } catch (err) {
-        console.error('PDF error:', err);
-        alert('Något gick fel. Försök igen.');
-      } finally {
-        progress.classList.remove('active');
-        btn.disabled = false;
-      }
+        if (added === 0) { alert('Kunde inte ladda bilder. Försök igen.'); return; }
+        sub.textContent = 'Sparar…';
+        const name = taskData.client.replace(/https?:\/\//, '').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+        doc.save(`SpiderAds-Pitch-${name}-${taskData.taskId}.pdf`);
+        if (failed > 0) alert(`PDF sparad! OBS: ${failed} bild(er) kunde inte inkluderas.`);
+      } catch(err) { console.error(err); alert('Något gick fel. Försök igen.'); }
+      finally { progress.classList.remove('active'); btn.disabled = false; }
     }
 
-    // ============================================
-    // DESIGN GRID (UNCHANGED)
-    // ============================================
+    // ── DESIGN GRID ────────────────────────────────────
     function createDesignCard(design) {
       const card = document.createElement('div');
-      card.className = 'design-card';
-      card.id = `design-${design.id}`;
-      card.innerHTML = `
-        <div class="design-checkbox">
-          <input type="checkbox" id="checkbox-${design.id}" value="${design.id}" onchange="toggleDesign(${design.id})">
-          <label for="checkbox-${design.id}">${design.filename}</label>
-        </div>
-        <img src="${design.url}" alt="${design.filename}" class="design-thumbnail" onclick="openImageModal('${design.url}')">
-      `;
+      card.className = 'design-card'; card.id = `design-${design.id}`;
+      card.innerHTML = `<div class="design-checkbox"><input type="checkbox" id="checkbox-${design.id}" value="${design.id}" onchange="toggleDesign(${design.id})"><label for="checkbox-${design.id}">${design.filename}</label></div><img src="${design.url}" alt="${design.filename}" class="design-thumbnail" onclick="openImageModal('${design.url}')">`;
       return card;
     }
 
-    function toggleDesign(designId) {
-      const checkbox = document.getElementById(`checkbox-${designId}`);
-      const card     = document.getElementById(`design-${designId}`);
-      if (checkbox.checked) { selectedDesigns.add(designId);    card.classList.add('selected'); }
-      else                  { selectedDesigns.delete(designId); card.classList.remove('selected'); }
-      updateSelectionCounter();
+    function toggleDesign(id) {
+      const cb = document.getElementById(`checkbox-${id}`);
+      const card = document.getElementById(`design-${id}`);
+      if (cb.checked) { selectedDesigns.add(id); card.classList.add('selected'); }
+      else { selectedDesigns.delete(id); card.classList.remove('selected'); }
+      document.getElementById('selectedCount').textContent = selectedDesigns.size;
+      document.getElementById('selectionCounter').classList.toggle('has-selection', selectedDesigns.size > 0);
     }
 
-    function updateSelectionCounter() {
-      const counter = document.getElementById('selectionCounter');
-      const count   = selectedDesigns.size;
-      document.getElementById('selectedCount').textContent = count;
-      counter.classList.toggle('has-selection', count > 0);
-    }
-
-    // ============================================
-    // DECISION / FORM (UNCHANGED)
-    // ============================================
+    // ── FORM ───────────────────────────────────────────
     function selectDecision(decision) {
       document.getElementById(decision).checked = true;
       document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
@@ -1731,8 +598,7 @@
     }
 
     function updateCharCounter() {
-      const length = document.getElementById('comments').value.length;
-      document.getElementById('charCounter').textContent = `${length} tecken`;
+      document.getElementById('charCounter').textContent = document.getElementById('comments').value.length + ' tecken';
     }
 
     function handleFileSelect(event) {
@@ -1740,7 +606,7 @@
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (!file.type.startsWith('image/')) { alert('Välj endast bildfiler'); continue; }
-        if (file.size > 10 * 1024 * 1024)   { alert('File size must be less than 10MB: ' + file.name); continue; }
+        if (file.size > 10*1024*1024) { alert('Filen är för stor (max 10MB): ' + file.name); continue; }
         uploadedFiles.push(file);
         createFilePreview(file, uploadedFiles.length - 1);
       }
@@ -1749,17 +615,11 @@
 
     function createFilePreview(file, index) {
       const reader = new FileReader();
-      reader.onload = function (e) {
+      reader.onload = e => {
         const container = document.getElementById('filePreviews');
-        const preview   = document.createElement('div');
-        preview.className = 'file-preview';
-        preview.id        = `file-preview-${index}`;
-        preview.innerHTML = `
-          <button class="file-preview-remove" onclick="removeFile(${index})" type="button">×</button>
-          <img src="${e.target.result}" alt="${file.name}">
-          <div class="file-preview-name" title="${file.name}">${file.name}</div>
-          <div class="file-preview-size">${formatFileSize(file.size)}</div>
-        `;
+        const preview = document.createElement('div');
+        preview.className = 'file-preview'; preview.id = `file-preview-${index}`;
+        preview.innerHTML = `<button class="file-preview-remove" onclick="removeFile(${index})" type="button">×</button><img src="${e.target.result}" alt="${file.name}"><div class="file-preview-name" title="${file.name}">${file.name}</div><div class="file-preview-size">${formatFileSize(file.size)}</div>`;
         container.appendChild(preview);
       };
       reader.readAsDataURL(file);
@@ -1767,164 +627,89 @@
 
     function removeFile(index) {
       uploadedFiles[index] = null;
-      const preview = document.getElementById(`file-preview-${index}`);
-      if (preview) preview.remove();
+      const p = document.getElementById(`file-preview-${index}`);
+      if (p) p.remove();
     }
 
     function formatFileSize(bytes) {
       if (bytes === 0) return '0 Bytes';
-      const k = 1024, sizes = ['Bytes', 'KB', 'MB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+      const k = 1024, sizes = ['Bytes','KB','MB'];
+      const i = Math.floor(Math.log(bytes)/Math.log(k));
+      return Math.round(bytes/Math.pow(k,i)*100)/100 + ' ' + sizes[i];
     }
 
     function validateForm() {
       const decision = document.querySelector('input[name="decision"]:checked');
       if (!decision) { showError('Välj ett beslut (Godkänn, Revidera eller Avböj)'); return false; }
-      if (decision.value === 'approve' && selectedDesigns.size === 0) {
-        showError('Välj minst en design att godkänna'); return false;
-      }
+      if (decision.value === 'approve' && selectedDesigns.size === 0) { showError('Välj minst en design att godkänna'); return false; }
       return true;
     }
 
-    function showError(message) {
+    function showError(msg) {
       const el = document.getElementById('errorMessage');
-      el.textContent = message;
-      el.classList.add('visible');
+      el.textContent = msg; el.classList.add('visible');
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    function hideError() {
-      document.getElementById('errorMessage').classList.remove('visible');
-    }
-
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
+    function hideError() { document.getElementById('errorMessage').classList.remove('visible'); }
 
     async function submitReview() {
       if (!validateForm()) return;
-
       const decision = document.querySelector('input[name="decision"]:checked').value;
       const comments = document.getElementById('comments').value.trim();
-
-      document.getElementById('submitBtn').disabled    = true;
+      document.getElementById('submitBtn').disabled = true;
       document.getElementById('submitBtn').textContent = 'SKICKAR...';
       document.getElementById('mainCard').classList.add('loading');
 
-      // ── Step 1: Upload files directly to ClickUp ──
       const validFiles = uploadedFiles.filter(f => f !== null);
       if (validFiles.length > 0) {
         try {
-          const fileFormData = new FormData();
-          fileFormData.append('taskId', taskData.taskId);
-          fileFormData.append('fileCount', validFiles.length.toString());
-          fileFormData.append('comments', comments);
-          fileFormData.append('decision', decision);
-          fileFormData.append('selectedDesigns', Array.from(selectedDesigns).map(id => taskData.designs[id].filename).join(', '));
-          validFiles.forEach((file, i) => {
-            fileFormData.append(`file_${i}`, file, file.name);
-          });
-
-          await fetch('/api/upload', {
-            method: 'POST',
-            body: fileFormData,
-          });
-        } catch (err) {
-          console.error('File upload error:', err);
-          // Don't block submission if upload fails
-        }
+          const fd = new FormData();
+          fd.append('taskId', taskData.taskId); fd.append('fileCount', validFiles.length);
+          fd.append('comments', comments); fd.append('decision', decision);
+          fd.append('selectedDesigns', Array.from(selectedDesigns).map(id => taskData.designs[id].filename).join(', '));
+          validFiles.forEach((file, i) => fd.append(`file_${i}`, file, file.name));
+          await fetch('/api/upload', { method: 'POST', body: fd });
+        } catch(err) { console.error('Upload error:', err); }
       }
 
-      // ── Step 2: Send decision to Zapier as normal ──
-      const reviewData = {
-        taskId:          taskData.taskId,
-        client:          taskData.client,
-        decision,
+      sendToWebhook({
+        taskId: taskData.taskId, client: taskData.client, decision,
         selectedDesigns: Array.from(selectedDesigns).map(id => taskData.designs[id].filename),
-        comments,
-        fileCount:       validFiles.length,
-        timestamp:       new Date().toISOString()
-      };
-
-      sendToWebhook(reviewData);
+        comments, fileCount: validFiles.length, timestamp: new Date().toISOString()
+      });
     }
 
     function sendToWebhook(data) {
       let iframe = document.getElementById('hidden-iframe');
       if (!iframe) {
         iframe = document.createElement('iframe');
-        iframe.id    = 'hidden-iframe';
-        iframe.name  = 'hidden-iframe';
-        iframe.style.display = 'none';
+        iframe.id = 'hidden-iframe'; iframe.name = 'hidden-iframe'; iframe.style.display = 'none';
         document.body.appendChild(iframe);
       }
-
-      const form    = document.createElement('form');
-      form.method   = 'POST';
-      form.action   = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
-      form.target   = 'hidden-iframe';
-      form.style.display = 'none';
-
+      const form = document.createElement('form');
+      form.method = 'POST'; form.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
+      form.target = 'hidden-iframe'; form.style.display = 'none';
       for (const key in data) {
-        if (key === 'selectedDesigns') {
-          const input = document.createElement('input');
-          input.type  = 'hidden'; input.name = key; input.value = data[key].join(', ');
-          form.appendChild(input);
-        } else if (key === 'attachedFiles') {
-          if (data[key]) {
-            try {
-              const files = JSON.parse(data[key]);
-              files.forEach((file, index) => {
-                ['name', 'data', 'type'].forEach(prop => {
-                  const input = document.createElement('input');
-                  input.type  = 'hidden';
-                  input.name  = `file_${index + 1}_${prop}`;
-                  input.value = file[prop];
-                  form.appendChild(input);
-                });
-              });
-            } catch (e) { console.error('Error parsing files:', e); }
-          }
-        } else {
-          const input = document.createElement('input');
-          input.type  = 'hidden'; input.name = key; input.value = data[key];
-          form.appendChild(input);
-        }
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = key;
+        input.value = Array.isArray(data[key]) ? data[key].join(', ') : data[key];
+        form.appendChild(input);
       }
-
       document.body.appendChild(form);
       form.submit();
-
-      setTimeout(() => {
-        showSuccessScreen();
-        document.body.removeChild(form);
-      }, 500);
+      setTimeout(() => { showSuccessScreen(); document.body.removeChild(form); }, 500);
     }
 
     function showSuccessScreen() {
       document.getElementById('mainCard').style.display = 'none';
       document.getElementById('successScreen').classList.add('visible');
-      document.getElementById('successTaskId').textContent = `TASK ${taskData.taskId}`;
+      document.getElementById('successTaskId').textContent = 'TASK ' + taskData.taskId;
     }
 
-    function resetForm() {
-      if (confirm('Are you sure you want to reset the form?')) location.reload();
-    }
-
-    function openImageModal(imageUrl) {
-      document.getElementById('lightboxImage').src = imageUrl;
-      document.getElementById('lightbox').classList.add('active');
-    }
-
-    function closeLightbox() {
-      document.getElementById('lightbox').classList.remove('active');
-    }
+    function resetForm() { if (confirm('Are you sure you want to reset the form?')) location.reload(); }
+    function openImageModal(url) { document.getElementById('lightboxImage').src = url; document.getElementById('lightbox').classList.add('active'); }
+    function closeLightbox() { document.getElementById('lightbox').classList.remove('active'); }
   </script>
 </body>
 </html>
