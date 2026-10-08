@@ -681,6 +681,36 @@
     }
 
     function sendToWebhook(data) {
+      const payload = {};
+      for (const key in data) payload[key] = Array.isArray(data[key]) ? data[key].join(', ') : data[key];
+
+      // DEFAULT (what every client uses today): the original post straight to the Zapier hook. Unchanged.
+      // OPT-IN test path: open the page with ?direct=1 (add &test=1 for test mode) to use our own
+      // /api/feedback route instead. If that route fails, we fall back to the original path.
+      const params = new URLSearchParams(location.search);
+      if (params.get('direct') !== '1') {
+        legacyWebhookPost(payload);
+        setTimeout(() => { showSuccessScreen(); }, 500);
+        return;
+      }
+
+      payload.direct = 'true';
+      if (params.get('test') === '1') payload.test = '1';
+      fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).then(function (r) { if (!r.ok) throw new Error('feedback ' + r.status); })
+        .catch(function (err) {
+          console.error('Feedback route failed, using original path:', err);
+          delete payload.direct; delete payload.test;
+          legacyWebhookPost(payload);
+        });
+      setTimeout(() => { showSuccessScreen(); }, 500);
+    }
+
+    function legacyWebhookPost(payload) {
       let iframe = document.getElementById('hidden-iframe');
       if (!iframe) {
         iframe = document.createElement('iframe');
@@ -690,15 +720,14 @@
       const form = document.createElement('form');
       form.method = 'POST'; form.action = 'https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/';
       form.target = 'hidden-iframe'; form.style.display = 'none';
-      for (const key in data) {
+      for (const key in payload) {
         const input = document.createElement('input');
-        input.type = 'hidden'; input.name = key;
-        input.value = Array.isArray(data[key]) ? data[key].join(', ') : data[key];
+        input.type = 'hidden'; input.name = key; input.value = payload[key];
         form.appendChild(input);
       }
       document.body.appendChild(form);
       form.submit();
-      setTimeout(() => { showSuccessScreen(); document.body.removeChild(form); }, 500);
+      setTimeout(() => { if (form.parentNode) form.parentNode.removeChild(form); }, 500);
     }
 
     function showSuccessScreen() {
