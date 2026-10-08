@@ -17,6 +17,7 @@
 //   STATUS_APPROVE / STATUS_REVISE / STATUS_DECLINE   ClickUp status names (default "Backlog" = live zap v23)
 //   SLACK_WEBHOOK_ORDERS       Slack incoming webhook for the approve channel (#spiderads-orders)
 //   SLACK_WEBHOOK_REVISIONS    Slack incoming webhook for the revise/decline channel
+//   SLACK_WEBHOOK_TEST         Slack incoming webhook for test runs only (page opened with ?direct=1&test=1)
 //   ZAPIER_FEEDBACK_HOOK_URL   override the Zapier hook used in "zapier" mode
 //
 import { NextRequest, NextResponse } from "next/server";
@@ -112,9 +113,13 @@ export async function POST(req: NextRequest) {
   // without touching Vercel settings, and ?status=<name> overrides the ClickUp status.
   const isPreview = process.env.VERCEL_ENV === "preview";
   const q = req.nextUrl.searchParams;
-  const mode = ((isPreview && q.get("mode")) || process.env.FEEDBACK_MODE || "zapier").toLowerCase();
+  // direct mode if: the submission asks for it (opt-in test link), or FEEDBACK_MODE=direct,
+  // or (preview only) ?mode=direct.
+  const askedDirect = payload.direct === "true";
+  const mode = (askedDirect ? "direct" : (isPreview && q.get("mode")) || process.env.FEEDBACK_MODE || "zapier").toLowerCase();
+  const testRun = payload.test === "1";
   const statusOverride = isPreview ? q.get("status") : null;
-  const noAssign = isPreview && q.get("noassign") === "1";
+  const noAssign = testRun || (isPreview && q.get("noassign") === "1");
 
   // ---- Mode: zapier (default) — pass through exactly as before -------------
   if (mode !== "direct") {
@@ -184,8 +189,12 @@ export async function POST(req: NextRequest) {
   }
 
   // 3) Slack (approve -> orders channel; revise/decline -> revisions channel)
-  const slackUrl = decision === "approve" ? process.env.SLACK_WEBHOOK_ORDERS : process.env.SLACK_WEBHOOK_REVISIONS;
-  result.slack = await postSlack(slackUrl, `${body}\n<https://app.clickup.com/t/${taskId}|Open task in ClickUp>`);
+  // Test runs (?direct=1&test=1 on the page) only ever post to SLACK_WEBHOOK_TEST, never the real channels.
+  const slackUrl = testRun
+    ? process.env.SLACK_WEBHOOK_TEST
+    : decision === "approve" ? process.env.SLACK_WEBHOOK_ORDERS : process.env.SLACK_WEBHOOK_REVISIONS;
+  const slackText = `${testRun ? "🧪 TEST — " : ""}${body}\n<https://app.clickup.com/t/${taskId}|Open task in ClickUp>`;
+  result.slack = await postSlack(slackUrl, slackText);
 
   // Only report failure to the page if nothing worked; the page falls back to Zapier then.
   const anyOk = result.comment === "ok" || result.status === "ok";
