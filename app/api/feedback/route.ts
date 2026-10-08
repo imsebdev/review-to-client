@@ -108,7 +108,12 @@ async function readPayload(req: NextRequest): Promise<Record<string, string>> {
 
 export async function POST(req: NextRequest) {
   const payload = await readPayload(req);
-  const mode = (process.env.FEEDBACK_MODE || "zapier").toLowerCase();
+  // Preview deployments only (never production): ?mode=direct lets us test direct mode
+  // without touching Vercel settings, and ?status=<name> overrides the ClickUp status.
+  const isPreview = process.env.VERCEL_ENV === "preview";
+  const q = req.nextUrl.searchParams;
+  const mode = ((isPreview && q.get("mode")) || process.env.FEEDBACK_MODE || "zapier").toLowerCase();
+  const statusOverride = isPreview ? q.get("status") : null;
 
   // ---- Mode: zapier (default) — pass through exactly as before -------------
   if (mode !== "direct") {
@@ -169,7 +174,7 @@ export async function POST(req: NextRequest) {
 
   // 2) ClickUp status
   try {
-    const res = await clickup(`/task/${taskId}`, { method: "PUT", body: JSON.stringify({ status: statusFor(decision) }) });
+    const res = await clickup(`/task/${taskId}`, { method: "PUT", body: JSON.stringify({ status: statusOverride || statusFor(decision) }) });
     result.status = res.ok ? "ok" : `failed ${res.status}`;
     if (!res.ok) console.error("feedback: status failed", res.status, await res.text());
   } catch (e) {
