@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const mode = ((isPreview && q.get("mode")) || process.env.FEEDBACK_MODE || "zapier").toLowerCase();
   const statusOverride = isPreview ? q.get("status") : null;
+  const noAssign = isPreview && q.get("noassign") === "1";
 
   // ---- Mode: zapier (default) — pass through exactly as before -------------
   if (mode !== "direct") {
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest) {
 
   // 1) ClickUp comment (assigned to Octavian, like the zap)
   try {
-    const assignee = await resolveAssigneeId();
+    const assignee = noAssign ? null : await resolveAssigneeId();
     const res = await clickup(`/task/${taskId}/comment`, {
       method: "POST",
       body: JSON.stringify({
@@ -191,6 +192,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ...result, ok: anyOk }, { status: anyOk ? 200 : 502 });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Preview-only helper: ?assignee=1 shows which ClickUp user id the comment would be assigned to.
+  if (process.env.VERCEL_ENV === "preview" && req.nextUrl.searchParams.get("assignee") === "1") {
+    return NextResponse.json({ ok: true, assigneeId: await resolveAssigneeId() });
+  }
   return NextResponse.json({ ok: true, mode: (process.env.FEEDBACK_MODE || "zapier").toLowerCase() });
 }
