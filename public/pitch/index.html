@@ -684,11 +684,12 @@
       const payload = {};
       for (const key in data) payload[key] = Array.isArray(data[key]) ? data[key].join(', ') : data[key];
 
-      // DEFAULT (what every client uses today): the original post straight to the Zapier hook. Unchanged.
-      // OPT-IN test path: open the page with ?direct=1 (add &test=1 for test mode) to use our own
-      // /api/feedback route instead. If that route fails, we fall back to the original path.
+      // DEFAULT: our own /api/feedback route (comment + status + Slack, no Zapier tasks).
+      // ESCAPE HATCH: open the page with ?direct=0 to use the original post straight to the Zapier hook.
+      // Add &test=1 for test mode (Slack goes only to the test webhook, comment is not assigned).
+      // If the route fails, we fall back to the original Zapier post, so feedback is never lost.
       const params = new URLSearchParams(location.search);
-      if (params.get('direct') !== '1') {
+      if (params.get('direct') === '0') {
         legacyWebhookPost(payload);
         setTimeout(() => { showSuccessScreen(); }, 500);
         return;
