@@ -159,6 +159,7 @@
   </style>
 </head>
 <body>
+  <script>document.addEventListener('DOMContentLoaded',function(){try{var n=localStorage.getItem('reviewerName');if(n)document.getElementById('reviewerName').value=n;}catch(e){}});</script>
   <div class="container">
     <div class="header">
       <div class="logo">
@@ -262,6 +263,8 @@
           <label for="decline"><div>Avböj - Inte rätt riktning ❌</div></label>
         </div>
         <div class="comment-section visible" id="commentSection">
+          <label for="reviewerName">👤 Ditt namn (obligatoriskt)</label>
+          <input type="text" id="reviewerName" name="reviewerName" autocomplete="name" maxlength="80" placeholder="Förnamn Efternamn" style="width:100%;background:rgba(42,42,60,0.5);border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;color:#fff;font-family:'Inter',inherit;font-size:14px;margin-bottom:18px">
           <label for="comments">💬 Ytterligare kommentarer (valfritt)</label>
           <textarea id="comments" name="comments" placeholder="Lägg till feedback eller anteckningar här..." oninput="updateCharCounter()"></textarea>
           <div class="char-counter" id="charCounter">0 tecken</div>
@@ -642,6 +645,9 @@
       const decision = document.querySelector('input[name="decision"]:checked');
       if (!decision) { showError('Välj ett beslut (Godkänn, Revidera eller Avböj)'); return false; }
       if (decision.value === 'approve' && selectedDesigns.size === 0) { showError('Välj minst en design att godkänna'); return false; }
+      const nm = document.getElementById('reviewerName').value.trim();
+      if (nm.length < 2) { showError('Skriv ditt namn så vi vet vem som svarat'); document.getElementById('reviewerName').focus(); return false; }
+      try { localStorage.setItem('reviewerName', nm); } catch (e) {}
       return true;
     }
 
@@ -657,6 +663,7 @@
       if (!validateForm()) return;
       const decision = document.querySelector('input[name="decision"]:checked').value;
       const comments = document.getElementById('comments').value.trim();
+      const reviewerName = document.getElementById('reviewerName').value.trim();
       document.getElementById('submitBtn').disabled = true;
       document.getElementById('submitBtn').textContent = 'SKICKAR...';
       document.getElementById('mainCard').classList.add('loading');
@@ -674,7 +681,7 @@
       }
 
       sendToWebhook({
-        taskId: taskData.taskId, client: taskData.client, decision,
+        taskId: taskData.taskId, client: reviewerName + (taskData.client ? ' (' + taskData.client + ')' : ''), reviewer: reviewerName, company: taskData.client || '', decision,
         selectedDesigns: Array.from(selectedDesigns).map(id => taskData.designs[id].filename),
         comments, fileCount: validFiles.length, timestamp: new Date().toISOString()
       });
