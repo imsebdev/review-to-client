@@ -54,7 +54,9 @@ export async function POST(req: NextRequest) {
   const q = new URL(req.url).searchParams;
 
   const secret = body?.secret ?? req.headers.get("x-stealth-secret") ?? q.get("secret");
-  if (!secret || secret !== process.env.STEALTH_SECRET) {
+  // Accept the route's own secret (SEND_TO_SELLER_SECRET) or the shared STEALTH_SECRET.
+  const okSecrets = [process.env.SEND_TO_SELLER_SECRET, process.env.STEALTH_SECRET].filter(Boolean);
+  if (!secret || !okSecrets.includes(String(secret))) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
