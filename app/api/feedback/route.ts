@@ -19,8 +19,12 @@
 //   SLACK_WEBHOOK_REVISIONS    Slack incoming webhook for the revise/decline channel
 //   SLACK_WEBHOOK_TEST         Slack incoming webhook for test runs only (page opened with ?direct=1&test=1)
 //   ZAPIER_FEEDBACK_HOOK_URL   override the Zapier hook used in "zapier" mode
+//   EMAIL_REQUESTER_COPY=1     also email the task's "Requester Email" a copy of each reply (off by default)
+//   EMAIL_TEST_TO              test runs email only this address (needs SMTP_* settings, see lib/email.ts)
 //
 import { NextRequest, NextResponse } from "next/server";
+import { fetchTask, taskFields } from "../../../lib/clickup-task";
+import { emailConfigured, escapeHtml, sendMail } from "../../../lib/email";
 
 const CLICKUP = "https://api.clickup.com/api/v2";
 const DEFAULT_ZAPIER_HOOK = "https://hooks.zapier.com/hooks/catch/24121388/uivwvnj/";
@@ -195,6 +199,38 @@ export async function POST(req: NextRequest) {
     : decision === "approve" ? process.env.SLACK_WEBHOOK_ORDERS : process.env.SLACK_WEBHOOK_REVISIONS;
   const slackText = `${testRun ? "🧪 TEST — " : ""}${body}\n<https://app.clickup.com/t/${taskId}|Open task in ClickUp>`;
   result.slack = await postSlack(slackUrl, slackText);
+
+  // 4) Email the requester (client, or the seller fronting for them) a copy of the reply.
+  // Off unless EMAIL_REQUESTER_COPY=1. Test runs only ever email EMAIL_TEST_TO. Never blocks or fails the request.
+  try {
+    if (!emailConfigured()) {
+      result.email = "skipped (email not configured)";
+    } else if (testRun || process.env.EMAIL_REQUESTER_COPY === "1") {
+      let company = client;
+      let to = process.env.EMAIL_TEST_TO || "";
+      if (!testRun) {
+        const f = taskFields(await fetchTask(taskId));
+        to = f.requesterEmail;
+        company = f.company || client;
+      }
+      const reviewer = clip(payload.reviewer, 200) || client;
+      const decisionText = { approve: "Godkänd", revise: "Ändringar önskas", decline: "Avböjd" }[decision];
+      const html =
+        `Hej!<br><br>Ett svar har kommit in på beställningen <strong>${escapeHtml(company)}</strong> (#${escapeHtml(taskId)}).<br><br>` +
+        `<strong>Från:</strong> ${escapeHtml(reviewer)}<br>` +
+        `<strong>Beslut:</strong> ${decisionText}<br>` +
+        (selected ? `<strong>${decision === "approve" ? "Godkända designer" : "Valda designer"}:</strong> ${escapeHtml(selected)}<br>` : "") +
+        (comments ? `<strong>Kommentar:</strong> ${escapeHtml(comments).replace(/\n/g, "<br>")}<br>` : "") +
+        `<br>Vi tar det härifrån. Du behöver inte göra något mer.<br><br>Med vänliga hälsningar,<br><strong>SpiderAds Graphics Team</strong><br><br><hr>` +
+        `<small style="color: #999;">Detta är ett automatiskt meddelande. Vänligen svara inte på detta mejl.</small>`;
+      result.email = to
+        ? await sendMail({ to, subject: `${testRun ? "[TEST] " : ""}${company || "Beställning"} – #${taskId} – Svar mottaget`, html })
+        : "skipped (no recipient)";
+    }
+  } catch (e) {
+    console.error("feedback: requester email error", e);
+    result.email = "failed";
+  }
 
   // Only report failure to the page if nothing worked; the page falls back to Zapier then.
   const anyOk = result.comment === "ok" || result.status === "ok";
