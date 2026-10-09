@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
   // 3) Email the requester
   const to = live ? f.requesterEmail : process.env.EMAIL_TEST_TO || "";
   const label = f.company || task.name || "Din beställning";
-  const subject = `${live ? "" : "[TEST] "}${label} – #${taskId} – Din SpiderAds annons är redo`;
+  const subject = `${live ? "" : "[TEST] "}${label} – #${taskId}`;
   if (!emailConfigured()) {
     result.email = "skipped (email not configured)";
   } else if (!to) {
