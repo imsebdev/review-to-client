@@ -27,6 +27,9 @@ const kv = new Redis({
 
 const CLICKUP = "https://api.clickup.com/api/v2";
 
+// Always evaluate at request time (GET status must reflect live env vars, not build-time ones).
+export const dynamic = "force-dynamic";
+
 function extractTaskId(req: NextRequest, body: any): string {
   const q = new URL(req.url).searchParams;
   const candidate =
