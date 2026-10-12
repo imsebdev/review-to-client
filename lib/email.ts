@@ -60,10 +60,29 @@ export function escapeHtml(v: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Returns "ok", "skipped (...)" or "failed". Never throws. */
+/**
+ * Turns a free-text address field (e.g. a ClickUp "Requester Email" with several addresses,
+ * separated by commas, semicolons, spaces or new lines) into a list of unique, valid addresses.
+ */
+export function parseRecipients(raw: unknown): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of String(raw ?? "").split(/[\s,;]+/)) {
+    const addr = part.replace(/^[<(]+|[>).]+$/g, "").trim();
+    if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(addr)) continue;
+    const key = addr.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(addr);
+  }
+  return out;
+}
+
+/** Returns "ok", "skipped (...)" or "failed". Never throws. `to` may hold several addresses. */
 export async function sendMail(opts: { to: string; subject: string; html: string }): Promise<string> {
   if (!emailConfigured()) return "skipped (email not configured)";
-  if (!opts.to || !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(opts.to.trim())) return "skipped (no valid recipient)";
+  const recipients = parseRecipients(opts.to);
+  if (recipients.length === 0) return "skipped (no valid recipient)";
 
   if (graphConfigured()) {
     try {
@@ -77,7 +96,7 @@ export async function sendMail(opts: { to: string; subject: string; html: string
             message: {
               subject: opts.subject,
               body: { contentType: "HTML", content: opts.html },
-              toRecipients: [{ emailAddress: { address: opts.to.trim() } }],
+              toRecipients: recipients.map((address) => ({ emailAddress: { address } })),
             },
             saveToSentItems: true,
           }),
@@ -101,7 +120,7 @@ export async function sendMail(opts: { to: string; subject: string; html: string
       const res = await fetch(process.env.EMAIL_ZAPIER_HOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: opts.to.trim(), subject: opts.subject, html: opts.html }),
+        body: JSON.stringify({ to: recipients.join(", "), subject: opts.subject, html: opts.html }),
       });
       return res.ok ? "ok" : `failed ${res.status}`;
     } catch (e) {
@@ -123,7 +142,7 @@ export async function sendMail(opts: { to: string; subject: string; html: string
     const fromName = process.env.EMAIL_FROM_NAME || "SpiderAds Graphics Team";
     await transport.sendMail({
       from: `"${fromName.replace(/"/g, "")}" <${fromAddr}>`,
-      to: opts.to.trim(),
+      to: recipients,
       subject: opts.subject,
       html: opts.html,
     });
