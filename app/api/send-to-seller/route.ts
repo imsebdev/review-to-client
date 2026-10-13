@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import { attachmentUrls, fetchTask, taskFields } from "../../../lib/clickup-task";
-import { emailConfigured, escapeHtml, sendMail } from "../../../lib/email";
+import { emailConfigured, escapeHtml, parseRecipients, sendMail } from "../../../lib/email";
 
 const kv = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -129,7 +129,26 @@ export async function POST(req: NextRequest) {
   }
 
   // 3) Email the requester
-  const to = live ? f.requesterEmail : process.env.EMAIL_TEST_TO || "";
+  // Live: use "Requester Email". If that field is empty or holds no valid address, fall back to any
+  // addresses in the task's "Name" field (older tasks keep the recipients there), so a send is
+  // never silently dropped.
+  let to = "";
+  let toSource = "test address";
+  if (live) {
+    const fromRequester = parseRecipients(f.requesterEmail);
+    const fromName = parseRecipients(f.name);
+    if (fromRequester.length > 0) {
+      to = fromRequester.join(", ");
+      toSource = "Requester Email";
+    } else if (fromName.length > 0) {
+      to = fromName.join(", ");
+      toSource = "Name field (Requester Email empty)";
+    }
+  } else {
+    to = process.env.EMAIL_TEST_TO || "";
+  }
+  // If the Name field holds email addresses rather than a person's name, don't greet "Hej a@b.se".
+  const greetName = f.name.includes("@") ? "" : f.name;
   const label = f.company || task.name || "Din beställning";
   const subject = `${live ? "" : "[TEST] "}${label} – #${taskId}`;
   if (!emailConfigured()) {
@@ -137,9 +156,15 @@ export async function POST(req: NextRequest) {
   } else if (!to) {
     result.email = live ? "skipped (task has no Requester Email)" : "skipped (EMAIL_TEST_TO not set)";
   } else {
-    result.email = await sendMail({ to, subject, html: emailHtml(f.name, link) });
+    result.email = await sendMail({ to, subject, html: emailHtml(greetName, link) });
   }
-  result.to = live ? "requester" : "test address";
+  result.to = live ? toSource : "test address";
+
+  // Surface the outcome in the Vercel logs: the HTTP status is 200 even when no email was sent.
+  const emailOutcome = String(result.email);
+  const logLine = `send-to-seller: task ${taskId} live=${live} email=${emailOutcome} to=${result.to}`;
+  if (emailOutcome === "ok") console.log(logLine);
+  else console.warn(logLine);
 
   return NextResponse.json(result);
 }
