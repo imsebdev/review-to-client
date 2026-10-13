@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
   result.to = live ? "requester" : "test address";
 
   // The HTTP status is 200 even when no email went out, so make a missed send visible:
-  // always in the Vercel logs, and on live runs also as a comment on the ClickUp task.
+  // always in the Vercel logs, and on live runs also as a Slack message.
   const emailOutcome = String(result.email);
   const logLine = `send-to-seller: task ${taskId} live=${live} email=${emailOutcome}`;
   if (emailOutcome === "ok") {
@@ -150,19 +150,34 @@ export async function POST(req: NextRequest) {
   } else {
     console.warn(logLine);
     if (live) {
-      const reason = emailOutcome.includes("Requester Email")
-        ? "the Requester Email field is empty. Fill it in, then set the status to SEND TO SELLER again."
-        : `${emailOutcome}. Check the Vercel logs, then set the status to SEND TO SELLER again.`;
-      try {
-        const res = await fetch(`${CLICKUP}/task/${taskId}/comment`, {
-          method: "POST",
-          headers: { Authorization: process.env.CLICKUP_API_KEY!, "Content-Type": "application/json" },
-          body: JSON.stringify({ comment_text: `⚠️ Send to Seller: the email was NOT sent – ${reason}`, notify_all: false }),
-        });
-        result.alert = res.ok ? "comment posted" : `comment failed ${res.status}`;
-      } catch (e) {
-        console.error("send-to-seller: alert comment failed", e);
-        result.alert = "comment failed";
+      // SLACK_WEBHOOK_ALERTS if set, otherwise the orders channel webhook the feedback route already uses.
+      const hook = process.env.SLACK_WEBHOOK_ALERTS || process.env.SLACK_WEBHOOK_ORDERS;
+      const why = emailOutcome.includes("Requester Email")
+        ? "The *Requester Email* field on the task is empty."
+        : `Reason: ${emailOutcome}`;
+      const fix = emailOutcome.includes("Requester Email")
+        ? "Fill in Requester Email, then set the status to SEND TO SELLER again."
+        : "Check the Vercel logs for send-to-seller, then set the status to SEND TO SELLER again.";
+      const text =
+        `🚨 *Send to Seller: email NOT sent*\n` +
+        `*Task:* <https://app.clickup.com/t/${taskId}|${label.replace(/[<>|]/g, "")} – #${taskId}>\n` +
+        `*Why:* ${why}\n` +
+        `*Fix:* ${fix}\n` +
+        `The requester has not received the review link.`;
+      if (!hook) {
+        result.alert = "skipped (no Slack webhook configured)";
+      } else {
+        try {
+          const res = await fetch(hook, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          result.alert = res.ok ? "slack posted" : `slack failed ${res.status}`;
+        } catch (e) {
+          console.error("send-to-seller: slack alert failed", e);
+          result.alert = "slack failed";
+        }
       }
     }
   }
