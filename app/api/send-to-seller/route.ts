@@ -141,6 +141,32 @@ export async function POST(req: NextRequest) {
   }
   result.to = live ? "requester" : "test address";
 
+  // The HTTP status is 200 even when no email went out, so make a missed send visible:
+  // always in the Vercel logs, and on live runs also as a comment on the ClickUp task.
+  const emailOutcome = String(result.email);
+  const logLine = `send-to-seller: task ${taskId} live=${live} email=${emailOutcome}`;
+  if (emailOutcome === "ok") {
+    console.log(logLine);
+  } else {
+    console.warn(logLine);
+    if (live) {
+      const reason = emailOutcome.includes("Requester Email")
+        ? "the Requester Email field is empty. Fill it in, then set the status to SEND TO SELLER again."
+        : `${emailOutcome}. Check the Vercel logs, then set the status to SEND TO SELLER again.`;
+      try {
+        const res = await fetch(`${CLICKUP}/task/${taskId}/comment`, {
+          method: "POST",
+          headers: { Authorization: process.env.CLICKUP_API_KEY!, "Content-Type": "application/json" },
+          body: JSON.stringify({ comment_text: `⚠️ Send to Seller: the email was NOT sent – ${reason}`, notify_all: false }),
+        });
+        result.alert = res.ok ? "comment posted" : `comment failed ${res.status}`;
+      } catch (e) {
+        console.error("send-to-seller: alert comment failed", e);
+        result.alert = "comment failed";
+      }
+    }
+  }
+
   return NextResponse.json(result);
 }
 
