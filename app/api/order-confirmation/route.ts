@@ -16,7 +16,8 @@
 // JSON body (all optional except email):
 //   name, email, company, orderDate, deadline, instructions, adFormat, adType,
 //   someTextAbove, someTextUnder, displayCopy, pmaxCopy,
-//   website, facebookUrl, spiderSource, attachments (comma / newline separated URLs)
+//   website, facebookUrl, spiderSource, attachments (comma / newline separated URLs),
+//   taskId (ClickUp card id from the Create Task step; shown as "– #<id>" in the subject)
 //
 import { NextRequest, NextResponse } from "next/server";
 import { emailConfigured, escapeHtml, parseRecipients, sendMail } from "../../../lib/email";
@@ -77,6 +78,7 @@ function emailHtml(p: Record<string, string>): string {
       ["Företag", p.company, { bold: true }],
       ["Orderdatum", formatDate(p.orderDate)],
       ["Deadline", p.deadline, { bold: true }],
+      ["Ärendenummer", p.taskId ? `#${p.taskId}` : "", { bold: true }],
     ]) +
     section("Instruktioner", [["Instruktioner från kund", p.instructions]]) +
     section("Annonsdetaljer", [
@@ -144,9 +146,15 @@ export async function POST(req: NextRequest) {
     attachments: clip(body.attachments, 10000),
   };
 
+  // ClickUp card id (sent by the zap from the Create Task step). Optional: if it is missing or
+  // malformed the email goes out exactly as before, without the id.
+  const rawTaskId = clip(body.taskId ?? body.task_id, 60);
+  const taskId = /^[A-Za-z0-9_-]{4,40}$/.test(rawTaskId) ? rawTaskId : "";
+  p.taskId = taskId;
+
   const live = process.env.ORDER_CONFIRMATION_LIVE === "1" && q.get("test") !== "1";
   const to = live ? p.email : process.env.EMAIL_TEST_TO || "";
-  const subject = `${live ? "" : "[TEST] "}Din SpiderAds beställning är bekräftad för – ${p.company || "din beställning"}`;
+  const subject = `${live ? "" : "[TEST] "}Din SpiderAds beställning är bekräftad för – ${p.company || "din beställning"}${taskId ? ` – #${taskId}` : ""}`;
 
   if (!emailConfigured()) return NextResponse.json({ ok: false, live, email: "skipped (email not configured)" }, { status: 503 });
   if (parseRecipients(to).length === 0) {
