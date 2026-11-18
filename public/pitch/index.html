@@ -319,6 +319,8 @@
     let downloadableFiles = [];
 
     const DOWNLOADABLE_EXTENSIONS = ['zip', 'rar', '7z', 'gz', 'tar', 'pdf'];
+    // Spreadsheets (e.g. the order manuscript) are internal: never show as thumbnail or download
+    const HIDDEN_EXTENSIONS = ['xls', 'xlsx', 'xlsm', 'csv', 'numbers'];
     const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'bmp', 'tiff'];
 
     function naturalSortByTrailingNumber(a, b) {
@@ -383,6 +385,7 @@
       downloadableFiles = [];
       allUrls.forEach(url => {
         const ext = getFileExtension(url);
+        if (HIDDEN_EXTENSIONS.includes(ext)) return;
         if (DOWNLOADABLE_EXTENSIONS.includes(ext)) {
           downloadableFiles.push({ url, ext, name: getFileNameFromUrl(url) });
         } else {
