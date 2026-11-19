@@ -161,6 +161,11 @@ export async function POST(req: NextRequest) {
     `${DECISION_ICON[decision]} Decision: ${decision}\n` +
     `🖼️ ${designsLabel}: ${selected}\n` +
     `📝 Comment: ${comments}`;
+  const attachedFiles = clip(payload.attachedFiles, 2000).trim();
+  const failedFiles = clip(payload.failedFiles, 2000).trim();
+  const filesNote =
+    (attachedFiles ? `\n📎 Attached image(s): ${attachedFiles}` : "") +
+    (failedFiles ? `\n⚠️ Client tried to attach but upload failed: ${failedFiles}` : "");
 
   const result: Record<string, unknown> = { ok: true, mode: "direct", comment: "pending", status: "pending", slack: "pending" };
 
@@ -170,7 +175,7 @@ export async function POST(req: NextRequest) {
     const res = await clickup(`/task/${taskId}/comment`, {
       method: "POST",
       body: JSON.stringify({
-        comment_text: body,
+        comment_text: body + filesNote,
         notify_all: false,
         ...(assignee ? { assignee } : {}),
       }),
@@ -197,7 +202,7 @@ export async function POST(req: NextRequest) {
   const slackUrl = testRun
     ? process.env.SLACK_WEBHOOK_TEST
     : decision === "approve" ? process.env.SLACK_WEBHOOK_ORDERS : process.env.SLACK_WEBHOOK_REVISIONS;
-  const slackText = `${testRun ? "🧪 TEST — " : ""}${body}\n<https://app.clickup.com/t/${taskId}|Open task in ClickUp>`;
+  const slackText = `${testRun ? "🧪 TEST — " : ""}${body}${filesNote}\n<https://app.clickup.com/t/${taskId}|Open task in ClickUp>`;
   result.slack = await postSlack(slackUrl, slackText);
 
   // 4) Email the requester (client, or the seller fronting for them) a copy of the reply.
@@ -221,6 +226,7 @@ export async function POST(req: NextRequest) {
         `<strong>Beslut:</strong> ${decisionText}<br>` +
         (selected ? `<strong>${decision === "approve" ? "Godkända designer" : "Valda designer"}:</strong> ${escapeHtml(selected)}<br>` : "") +
         (comments ? `<strong>Kommentar:</strong> ${escapeHtml(comments).replace(/\n/g, "<br>")}<br>` : "") +
+        (attachedFiles ? `<strong>Bifogade bilder:</strong> ${escapeHtml(attachedFiles)}<br>` : "") +
         `<br>Vi tar det härifrån. Du behöver inte göra något mer.<br><br>Med vänliga hälsningar,<br><strong>SpiderAds Graphics Team</strong><br><br><hr>` +
         `<small style="color: #999;">Detta är ett automatiskt meddelande. Vänligen svara inte på detta mejl.</small>`;
       result.email = to

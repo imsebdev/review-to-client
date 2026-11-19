@@ -55,8 +55,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Post a comment on the task to notify the team
-    if (uploadedCount > 0) {
+    // Post a comment on the task to notify the team.
+    // The pitch page now uploads one file per request with skipComment=1 and lists the
+    // files in the /api/feedback comment instead (one comment, no duplicates).
+    const skipComment = formData.get('skipComment') === '1';
+    if (uploadedCount > 0 && !skipComment) {
       const fileNames = [];
       for (let i = 0; i < fileCount; i++) {
         const file = formData.get(`file_${i}`) as File | null;

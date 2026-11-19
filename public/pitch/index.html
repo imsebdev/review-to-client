@@ -612,7 +612,7 @@
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (!file.type.startsWith('image/')) { alert('Välj endast bildfiler'); continue; }
-        if (file.size > 10*1024*1024) { alert('Filen är för stor (max 10MB): ' + file.name); continue; }
+        if (file.size > 25*1024*1024) { alert('Filen är för stor (max 25MB): ' + file.name); continue; }
         uploadedFiles.push(file);
         createFilePreview(file, uploadedFiles.length - 1);
       }
@@ -662,6 +662,56 @@
 
     function hideError() { document.getElementById('errorMessage').classList.remove('visible'); }
 
+    // ---- Image upload helpers -------------------------------------------------
+    const MAX_REQUEST_BYTES = 4 * 1024 * 1024; // Vercel's hard limit is 4.5 MB per request
+    let sentAttachments = [];
+
+    // Shrink big photos (max 2000 px long side, JPEG) so each upload stays well under the limit.
+    async function prepareImage(file) {
+      const keepAsIs = file.size <= 1.5 * 1024 * 1024 && /^image\/(jpeg|png|webp|gif)$/.test(file.type);
+      if (keepAsIs || file.type === 'image/gif') return file;
+      try {
+        const bmp = await createImageBitmap(file);
+        for (const [maxSide, quality] of [[2000, 0.85], [1600, 0.75], [1200, 0.7]]) {
+          const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+          const c = document.createElement('canvas');
+          c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); // flatten transparency for JPEG
+          ctx.drawImage(bmp, 0, 0, c.width, c.height);
+          const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', quality));
+          if (blob && blob.size <= MAX_REQUEST_BYTES) {
+            const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+            return new File([blob], name, { type: 'image/jpeg' });
+          }
+        }
+      } catch (e) {
+        console.warn('Could not resize ' + file.name + ', sending original', e);
+      }
+      return file; // browser couldn't decode it (e.g. HEIC in Chrome): try the original
+    }
+
+    async function uploadOneImage(original, decision, comments) {
+      let file;
+      try { file = await prepareImage(original); } catch (e) { file = original; }
+      if (file.size > MAX_REQUEST_BYTES) { console.error('Too large after resize:', file.name, file.size); return false; }
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const fd = new FormData();
+          fd.append('taskId', taskData.taskId); fd.append('fileCount', '1'); fd.append('skipComment', '1');
+          fd.append('comments', comments); fd.append('decision', decision);
+          fd.append('file_0', file, file.name);
+          const r = await fetch('/api/upload', { method: 'POST', body: fd });
+          const j = r.ok ? await r.json().catch(() => null) : null;
+          if (j && j.uploaded === 1) return true;
+          console.error('Upload failed (attempt ' + attempt + '):', file.name, r.status);
+        } catch (err) {
+          console.error('Upload error (attempt ' + attempt + '):', file.name, err);
+        }
+      }
+      return false;
+    }
+
     async function submitReview() {
       if (!validateForm()) return;
       const decision = document.querySelector('input[name="decision"]:checked').value;
@@ -671,22 +721,40 @@
       document.getElementById('submitBtn').textContent = 'SKICKAR...';
       document.getElementById('mainCard').classList.add('loading');
 
-      const validFiles = uploadedFiles.filter(f => f !== null);
-      if (validFiles.length > 0) {
-        try {
-          const fd = new FormData();
-          fd.append('taskId', taskData.taskId); fd.append('fileCount', validFiles.length);
-          fd.append('comments', comments); fd.append('decision', decision);
-          fd.append('selectedDesigns', Array.from(selectedDesigns).map(id => taskData.designs[id].filename).join(', '));
-          validFiles.forEach((file, i) => fd.append(`file_${i}`, file, file.name));
-          await fetch('/api/upload', { method: 'POST', body: fd });
-        } catch(err) { console.error('Upload error:', err); }
+      // Upload images ONE PER REQUEST, shrunk in the browser first. Vercel rejects any request
+      // over 4.5 MB (413), and two phone photos sent together used to fail silently.
+      const failedNames = [];
+      const pending = uploadedFiles.map((f, i) => ({ f, i })).filter(x => x.f !== null);
+      for (let n = 0; n < pending.length; n++) {
+        const { f, i } = pending[n];
+        document.getElementById('submitBtn').textContent = `LADDAR UPP BILD ${n + 1} AV ${pending.length}...`;
+        if (await uploadOneImage(f, decision, comments)) {
+          sentAttachments.push(f.name);
+          removeFile(i); // don't upload it again if the client retries
+        } else {
+          failedNames.push(f.name);
+        }
       }
+      if (failedNames.length > 0) {
+        const sendAnyway = confirm(
+          'Följande bilder kunde inte laddas upp:\n\n' + failedNames.join('\n') +
+          '\n\nTryck OK för att skicka ditt beslut utan dem, eller Avbryt för att försöka igen.'
+        );
+        if (!sendAnyway) {
+          document.getElementById('submitBtn').disabled = false;
+          document.getElementById('submitBtn').textContent = 'SKICKA BESLUT';
+          document.getElementById('mainCard').classList.remove('loading');
+          showError('Bilderna kunde inte laddas upp: ' + failedNames.join(', ') + '. Försök igen, eller ta bort bilden och skicka utan den.');
+          return;
+        }
+      }
+      document.getElementById('submitBtn').textContent = 'SKICKAR...';
 
       sendToWebhook({
         taskId: taskData.taskId, client: reviewerName + (taskData.client ? ' (' + taskData.client + ')' : ''), reviewer: reviewerName, company: taskData.client || '', decision,
         selectedDesigns: Array.from(selectedDesigns).map(id => taskData.designs[id].filename),
-        comments, fileCount: validFiles.length, timestamp: new Date().toISOString()
+        comments, fileCount: sentAttachments.length, attachedFiles: sentAttachments.join(', '), failedFiles: failedNames.join(', '),
+        timestamp: new Date().toISOString()
       });
     }
 
