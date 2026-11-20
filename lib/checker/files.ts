@@ -58,7 +58,7 @@ export async function sortFiles(files: InFile[]): Promise<Sorted[]> {
   const best = new Map<string, Sorted>();
   for (const s of out) {
     const key =
-      s.kind === "mvk" ? `mvk:${s.mvk}` : s.kind === "poster" ? `poster:${baseName(s.name).toLowerCase()}` : `x:${s.name}`;
+      s.kind === "mvk" ? `mvk:${s.mvk}` : s.kind === "poster" ? `poster:${posterKey(baseName(s.name))}` : `x:${s.name}`;
     const prev = best.get(key);
     if (!prev || s.date > prev.date || (s.date === prev.date && !s.name.includes(".zip/") && prev.name.includes(".zip/")))
       best.set(key, s);
@@ -70,6 +70,12 @@ export async function sortFiles(files: InFile[]): Promise<Sorted[]> {
 export function pickFlyer(files: Sorted[], week: number): Sorted | null {
   const flyers = files.filter((f) => f.kind === "flyer");
   return flyers.find((f) => f.flyerWeek === week) ?? null;
+}
+
+/** "X_-TRA - Jul Veckoboost 48 - Apelsiner & Röda äpplen- 70x100.jpg" and the same without "Jul" → same key */
+function posterKey(n: string): string {
+  const m = n.match(/\d{1,2}\s*-\s*(.+?)\s*-?\s*70\s*x\s*100/i);
+  return (m ? m[1] : n).toLowerCase().replace(/[^a-zåäö0-9]+/g, "");
 }
 
 function baseName(n: string) {

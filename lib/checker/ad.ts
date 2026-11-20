@@ -76,6 +76,8 @@ Skriv av exakt vad som står i bilden – rätta ingenting i avskriften.
 - "splashes": övriga märken vid produkten, t.ex. "1 KG", "500 G", "Du sparar 5:60", "Du sparar minst 16:80".
 - "textIssues": ENDAST verkliga fel i svensk text: felstavning, saknat mellanslag efter punkt/komma ("Touch.Gäller", "a,b"),
   dubbla mellanslag, produktnamn med liten begynnelsebokstav när övriga har stor, felaktig versalisering. Inte stilval, inte varumärken.
+  Kommentera aldrig bildinnehållet, priser eller räknefel här – bara stavning/skiljetecken/mellanslag/versaler i texten.
+  Om du inte hittar några sådana fel: tom lista.
 - "unreadable": text du inte kan läsa säkert. Gissa aldrig siffror.`;
 
 async function jpeg(img: sharp.Sharp, maxSide: number): Promise<string> {

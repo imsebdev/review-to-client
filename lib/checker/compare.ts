@@ -93,6 +93,23 @@ function wordDiff(expected: string, found: string): { missing: string[]; extra: 
 
 const hasDigit = (w: string) => /\d/.test(w);
 
+const LIMIT_RE = /max\s*\d+\s*(?:st|köp|kg|förp)\.?\s*\/\s*hushåll\.?/gi;
+
+/** Split "… 500 g. Jfr-pris 99:80/kg. Max 3 st/hushåll." into info without the limit + the limit. */
+export function splitLimit(info: string, limit: string | null): { info: string; limit: string } {
+  const found: string[] = [...(info.match(LIMIT_RE) ?? []), ...(limit ? [limit] : [])];
+  const cleaned = norm(info.replace(LIMIT_RE, " "));
+  const lim = found.map((l) => norm(l).toLowerCase().replace(/\s+/g, "").replace(/\.$/, ""))[0] ?? "";
+  return { info: cleaned, limit: lim };
+}
+
+/** dd/mm–dd/mm (any text around it) → [start, end] as comparable numbers, or null. */
+function dateRange(s: string | null): [number, number] | null {
+  const m = (s ?? "").match(/(\d{1,2})\/(\d{1,2})\D+(\d{1,2})\/(\d{1,2})/);
+  if (!m) return null;
+  return [Number(m[2]) * 100 + Number(m[1]), Number(m[4]) * 100 + Number(m[3])];
+}
+
 // ---------- matching ad items to expected products ----------
 
 type Match = { exp: FlyerProduct; item: AdItem; by: "name" | "price" };
@@ -184,27 +201,34 @@ function compareProduct(m: Match): Issue[] {
   }
   if (exp.klipp && !item.klipp) issues.push({ severity: "warning", product, message: '"KLIPP!" badge from the flyer is missing' });
 
-  const el = norm(exp.limit);
-  const il = norm(item.limit);
-  if (el && !il) issues.push({ severity: "error", product, message: "Purchase limit is missing", expected: exp.limit! });
-  else if (!el && il) issues.push({ severity: "error", product, message: "Purchase limit is not in the flyer", found: item.limit! });
-  else if (el && il && key(el) !== key(il))
-    issues.push({ severity: "error", product, message: "Purchase limit differs", expected: exp.limit!, found: item.limit! });
+  const e = splitLimit(exp.info, exp.limit);
+  const a = splitLimit(item.info, item.limit);
+  if (e.limit && !a.limit) issues.push({ severity: "error", product, message: "Purchase limit is missing", expected: exp.limit ?? e.limit });
+  else if (!e.limit && a.limit) issues.push({ severity: "error", product, message: "Purchase limit is not in the flyer", found: item.limit ?? a.limit });
+  else if (e.limit && a.limit && e.limit !== a.limit)
+    issues.push({ severity: "error", product, message: "Purchase limit differs", expected: exp.limit ?? e.limit, found: item.limit ?? a.limit });
 
-  if (norm(exp.info) !== norm(item.info)) {
-    const d = wordDiff(exp.info, item.info);
+  const stripEnd = (x: string) => x.replace(/[.\s]+$/, "");
+  if (stripEnd(e.info) !== stripEnd(a.info)) {
+    const d = wordDiff(e.info, a.info);
     const numeric = [...d.missing, ...d.extra].some(hasDigit);
     const onlyPunct = !d.missing.length && !d.extra.length;
     issues.push({
       severity: onlyPunct ? "warning" : numeric || d.missing.length + d.extra.length > 0 ? "error" : "warning",
       product,
       message: onlyPunct ? "Info text differs from the flyer in punctuation/spacing" : "Info text differs from the flyer",
-      expected: exp.info,
-      found: item.info,
+      expected: e.info,
+      found: a.info,
     });
   }
 
-  issues.push(...arithmetic(item, product));
+  // arithmetic: if the flyer prints the same numbers, the mistake is Coop's, not the designer's
+  const sameAsFlyer = stripEnd(e.info) === stripEnd(a.info) && samePrice(item.price, exp.price);
+  for (const x of arithmetic(item, product)) {
+    if (sameAsFlyer && /Jfr-pris/.test(x.message))
+      issues.push({ ...x, severity: "warning", message: `${x.message} — the flyer says the same, so this is probably Coop's error (ask Pernilla)` });
+    else issues.push(x);
+  }
   return issues;
 }
 
@@ -261,9 +285,10 @@ export function checkFile(opts: {
   for (const m of matches) issues.push(...compareProduct(m));
 
   // validity dates
-  const digits = (s: string | null) => (s ?? "").replace(/\D+/g, " ").trim();
-  if (opts.flyerValidity && reading.validity && digits(opts.flyerValidity) !== digits(reading.validity))
-    issues.push({ severity: "error", message: "Validity dates differ from the flyer", expected: opts.flyerValidity, found: reading.validity });
+  const fr = dateRange(opts.flyerValidity);
+  const ar = dateRange(reading.validity);
+  if (fr && ar && (ar[0] < fr[0] || ar[1] > fr[1]))
+    issues.push({ severity: "error", message: "Dates are outside the flyer's validity period", expected: opts.flyerValidity!, found: reading.validity! });
 
   // headline
   if (opts.manusHeadline) {
@@ -280,8 +305,12 @@ export function checkFile(opts: {
       issues.push({ severity: "warning", message: "File name mentions a product that isn't on the poster", found: p });
   }
 
-  for (const t of reading.textIssues)
+  const alreadyFound = new Set(issues.map((i) => key(i.found ?? "")).filter(Boolean));
+  for (const t of reading.textIssues) {
+    if (key(t.text) === key(t.suggestion)) continue; // "Röda äpplen" → "Röda äpplen"
+    if (alreadyFound.has(key(t.text))) continue; // same thing as an arithmetic finding
     issues.push({ severity: "warning", message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion });
+  }
   for (const u of reading.unreadable) issues.push({ severity: "warning", message: "Couldn't read reliably — check by eye", found: u });
 
   return {
