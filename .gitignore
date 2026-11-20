@@ -1,0 +1,6 @@
+node_modules/
+.next/
+.env*.local
+.vercel
+# local test material for the AI checker (client files — never commit)
+checker-fixtures/
