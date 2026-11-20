@@ -78,7 +78,8 @@ Skriv av exakt vad som står i bilden – rätta ingenting i avskriften.
   dubbla mellanslag, produktnamn med liten begynnelsebokstav när övriga har stor, felaktig versalisering. Inte stilval, inte varumärken.
   Kommentera aldrig bildinnehållet, priser eller räknefel här – bara stavning/skiljetecken/mellanslag/versaler i texten.
   Om du inte hittar några sådana fel: tom lista.
-- "unreadable": text du inte kan läsa säkert. Gissa aldrig siffror.`;
+- "unreadable": annonsens egen text (pris, produktnamn, info, rubrik) som du inte kan läsa säkert. Gissa aldrig siffror.
+  Text på förpackningarna i produktbilderna räknas inte – den ska varken skrivas av eller rapporteras.`;
 
 async function jpeg(img: sharp.Sharp, maxSide: number): Promise<string> {
   const buf = await img

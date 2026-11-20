@@ -208,9 +208,10 @@ function compareProduct(m: Match): Issue[] {
   else if (e.limit && a.limit && e.limit !== a.limit)
     issues.push({ severity: "error", product, message: "Purchase limit differs", expected: exp.limit ?? e.limit, found: item.limit ?? a.limit });
 
-  const stripEnd = (x: string) => x.replace(/[.\s]+$/, "");
+  // line breaks after "/" come back as "Nederländerna/ Sverige" — not a real difference
+  const stripEnd = (x: string) => x.replace(/\s*\/\s*/g, "/").replace(/[.\s]+$/, "");
   if (stripEnd(e.info) !== stripEnd(a.info)) {
-    const d = wordDiff(e.info, a.info);
+    const d = wordDiff(stripEnd(e.info), stripEnd(a.info));
     const numeric = [...d.missing, ...d.extra].some(hasDigit);
     const onlyPunct = !d.missing.length && !d.extra.length;
     issues.push({
