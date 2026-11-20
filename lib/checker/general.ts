@@ -118,7 +118,7 @@ From the order card, the client's comments, the attached reference material and 
 - brandName / brandSpellings: the client's name exactly as the client writes it (website logo/title, card). Include accepted variants only if the client uses them.
 - urls: web addresses that may appear on the ads (the client's domain, landing pages from the card).
 - exactCopy: ONLY text the brief gives word for word to be used in the ads (quoted headlines, slogans, CTA text). Do not invent copy, do not include instructions.
-- requirements: concrete, checkable things the ads must or must not do (offer, product, campaign name, dates, number of ads, "Black Week", "show next free time", "no prices"…). Short, one per item. source = "brief", "client comment" or "website".
+- requirements: concrete, checkable things the ads must or must not do, taken ONLY from the card and the client's comments (offer, product, campaign name, number of ads, "Black Week", "show next free time", "no prices"…). Short, one per item. source = "brief" or "client comment". The website is never a source of requirements — terms, small print and campaign conditions on the site are facts, not things the ad must show.
 - facts: facts from the website/source pages that ads might state and that can be verified: prices, discounts, opening hours, phone numbers, addresses, product names, campaign dates, what the service is. Short. source = the page URL.
 - expectedAds: how many different ads/slides the order asks for, if it says (e.g. "3 ads in the carousel" → 3), else null.
 - expectedFormats: formats asked for (e.g. "SoMe 1080x1080", "Display", "GMP").
@@ -173,10 +173,10 @@ The file is either ONE ad (kind "single_ad"), or a presentation sheet / mockup t
    Sheets often show ALTERNATIVE designs side by side ("Alt. 1", "Grafik alt. 2", "Alternativ 3"): those are options for the client, not slides — label them that way; they may differ in design and wording.
 2. issues — report ONLY real problems, each with the exact text found and what it should be:
    - spelling, grammar, wrong word, missing/doubled spaces, wrong punctuation in the ad's language (error if clearly wrong, warning if debatable or a style matter)
-   - the client's name spelled differently from the brief (error); a wrong or misspelled URL (error)
+   - the client's name spelled differently from the brief in TEXT (error); a wrong or misspelled URL (error). Logos and wordmarks are graphics — never report a logo as a spelling error (a symbol next to the name is not a letter).
    - copy that should be word for word (exactCopy) but is written differently on this file (error). Don't report exactCopy as missing — that's checked across all files separately.
    - a requirement or client change not followed (error), or only partly (warning)
-   - a fact that contradicts the brief/website: price, date, phone, opening hours, offer (error). If the ad states a fact you simply can't find in the brief/website, that's a warning ("couldn't verify"), not an error.
+   - a fact ON THE AD that contradicts the brief/website: price, date, phone, opening hours, offer (error). If the ad states a fact you simply can't find in the brief/website, that's a warning ("couldn't verify"), not an error. Never require website small print (dates, terms, "while stocks last") to be on the ad unless the brief asks for it.
    - placeholder or leftover text: lorem ipsum, "Rubrik här", "XX:-", another company's name or offer, wrong campaign, or words that belong to a different kind of business than this client (e.g. "book a car service" on a barber ad — typical when a template from another client was reused) (error)
    - text that is cut off, covered, overlapping or too small/low-contrast to read (warning)
    - mixed languages where it isn't intended (warning)
