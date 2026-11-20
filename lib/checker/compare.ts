@@ -173,6 +173,19 @@ function compareProduct(m: Match): Issue[] {
     return issues;
   }
 
+  // name, price and info all different → it's another product, say that once instead of four times
+  const infoDiffers = norm(exp.info).replace(/[.\s]+$/, "") !== norm(item.info).replace(/[.\s]+$/, "");
+  if (m.by === "name" && similarity(item.name, exp.heading) < 0.8 && !samePrice(item.price, exp.price) && infoDiffers) {
+    issues.push({
+      severity: "error",
+      product,
+      message: "Looks like a different product than the manus asks for",
+      expected: `${exp.heading} — ${exp.price}${exp.memberPrice ? " Medlemspris" : ""} — ${exp.info} (flyer p. ${exp.page ?? "?"})`,
+      found: `${item.name} — ${item.price}${item.memberPrice ? " Medlemspris" : ""} — ${item.info}`,
+    });
+    return issues;
+  }
+
   if (m.by === "price" || similarity(item.name, exp.heading) < 0.8) {
     issues.push({
       severity: m.by === "price" ? "error" : "warning",

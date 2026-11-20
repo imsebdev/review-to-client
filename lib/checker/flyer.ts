@@ -17,6 +17,7 @@ export type FlyerProduct = {
   memberPrice: boolean; // "Medlemspris" badge
   klipp: boolean; // "KLIPP!" badge
   limit: string | null; // "MAX 2 ST/HUSHÅLL." exactly as printed, or null
+  limitFor?: string | null; // product name printed directly under that MAX line (self-check)
   info: string; // info line(s) under the heading, exactly as printed, joined with one space
   note: string | null; // anything the reader was unsure about
 };
@@ -44,6 +45,10 @@ const SCHEMA = {
           memberPrice: { type: "boolean" },
           klipp: { type: "boolean" },
           limit: { type: ["string", "null"] },
+          limitFor: {
+            type: ["string", "null"],
+            description: "If limit is set: the product name printed DIRECTLY UNDER that MAX line (same column).",
+          },
           info: { type: "string" },
           note: { type: ["string", "null"] },
         },
@@ -67,7 +72,7 @@ Regler:
 - Hittas produkten inte i bladet: found=false och tomma strängar.`;
 
 /** Bump when the prompt changes so cached readings are not reused. */
-export const FLYER_PROMPT_VERSION = "2";
+export const FLYER_PROMPT_VERSION = "3";
 
 export async function readFlyer(pdf: Uint8Array, products: ManusProduct[]): Promise<FlyerReading> {
   const list = products.map((p) => `- ${p.name}${p.page ? ` (sida ${p.page})` : ""}`).join("\n");
@@ -85,5 +90,17 @@ export async function readFlyer(pdf: Uint8Array, products: ManusProduct[]): Prom
       },
     ],
   });
+  // self-check: drop a limit whose MAX line actually sits above a different product
+  for (const p of data.products) {
+    if (p.limit && p.limitFor && !sameName(p.limitFor, p.heading)) {
+      p.note = `${p.note ? p.note + " " : ""}MAX line "${p.limit}" belongs to "${p.limitFor}", not this product.`;
+      p.limit = null;
+    }
+  }
   return { ...data, usage };
+}
+
+function sameName(a: string, b: string): boolean {
+  const k = (s: string) => s.toLowerCase().replace(/[^a-zåäöéü0-9]+/g, "");
+  return k(a) === k(b) || k(a).includes(k(b)) || k(b).includes(k(a));
 }
