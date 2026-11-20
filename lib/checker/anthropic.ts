@@ -29,9 +29,10 @@ export async function askJson<T>(opts: {
   const body = {
     model: opts.model || MODEL,
     max_tokens: opts.maxTokens ?? 8000,
-    system: opts.system,
+    system: `${opts.system}\n\nSvara ENDAST genom att anropa verktyget "${opts.toolName}" en gång med hela svaret.`,
     tools: [{ name: opts.toolName, description: opts.toolDescription, input_schema: opts.schema }],
-    tool_choice: { type: "tool", name: opts.toolName },
+    // Newer models don't accept a forced tool_choice; "auto" + the instruction above works the same.
+    tool_choice: { type: "auto" },
     messages: [{ role: "user", content: opts.content }],
   };
 
@@ -46,8 +47,16 @@ export async function askJson<T>(opts: {
     if (res.ok) {
       const json: any = await res.json();
       const block = (json.content || []).find((b: any) => b.type === "tool_use");
-      if (!block) throw new Error("Claude returned no structured answer");
-      return { data: block.input as T, usage: json.usage };
+      if (block) return { data: block.input as T, usage: json.usage };
+      // fallback: JSON written as text
+      const text = (json.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) {
+        try {
+          return { data: JSON.parse(m[0]) as T, usage: json.usage };
+        } catch {}
+      }
+      throw new Error(`Claude returned no structured answer (stop_reason ${json.stop_reason})`);
     }
     lastErr = `${res.status} ${(await res.text()).slice(0, 300)}`;
     // retry on overload / rate limit only
