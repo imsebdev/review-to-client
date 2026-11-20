@@ -22,6 +22,7 @@ export async function askJson<T>(opts: {
   schema: Record<string, unknown>;
   maxTokens?: number;
   model?: string;
+  temperature?: number; // 0 = same answer every run (proofreading should be stable)
 }): Promise<{ data: T; usage: Usage }> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
@@ -29,6 +30,7 @@ export async function askJson<T>(opts: {
   const body = {
     model: opts.model || MODEL,
     max_tokens: opts.maxTokens ?? 8000,
+    ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
     system: `${opts.system}\n\nSvara ENDAST genom att anropa verktyget "${opts.toolName}" en gång med hela svaret.`,
     tools: [{ name: opts.toolName, description: opts.toolDescription, input_schema: opts.schema }],
     // Newer models don't accept a forced tool_choice; "auto" + the instruction above works the same.

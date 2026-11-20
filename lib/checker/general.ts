@@ -228,6 +228,7 @@ async function readFile(brief: Brief, name: string, blocks: ContentBlock[], extr
     toolDescription: "Text on the file and the real problems found.",
     schema: FILE_SCHEMA,
     maxTokens: 6000,
+    temperature: 0,
   });
   return { r: { kind: data.kind ?? "other", ads: data.ads ?? [], issues: data.issues ?? [], unreadable: data.unreadable ?? [] }, usage };
 }
@@ -403,6 +404,7 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
     toolDescription: "What the finished ads must get right.",
     schema: BRIEF_SCHEMA,
     maxTokens: 4000,
+    temperature: 0,
   });
   add(bu);
   const brief: Brief = { ...briefData };
@@ -508,6 +510,7 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
       toolDescription: "Problems across the whole delivery.",
       schema: SET_SCHEMA,
       maxTokens: 2500,
+      temperature: 0,
     });
     add(su);
     for (const i of set.issues || []) orderIssues.push({ severity: i.severity, message: i.message, found: i.found ?? undefined, expected: i.expected ?? undefined });
