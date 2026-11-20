@@ -169,14 +169,15 @@ const FILE_SYSTEM = `You proofread finished ads for an ad agency before they go 
 The file is either ONE ad (kind "single_ad"), or a presentation sheet / mockup that shows one or several ads, often inside a Facebook/Instagram/LinkedIn feed or on a website mockup (kind "presentation").
 
 1. ads: list every ad you see (label like "Ad 1", "Slide 2", "300x250 banner") with ALL its text exactly as printed, one line per text block, no corrections.
-   For feed mockups, also list the post text above/below the ad as a separate entry labelled "Post text". Ignore the platform's own interface (Sponsored, Like, Share, page name, time stamps, browser chrome).
+   For feed mockups, also list the post text above/below the ad as a separate entry labelled "Post text". Ignore the platform's own interface (Sponsored, Like, Share, page name, time stamps, browser chrome, the platform's own buttons like "Varaa nyt"/"Learn more").
+   Sheets often show ALTERNATIVE designs side by side ("Alt. 1", "Grafik alt. 2", "Alternativ 3"): those are options for the client, not slides — label them that way; they may differ in design and wording.
 2. issues — report ONLY real problems, each with the exact text found and what it should be:
    - spelling, grammar, wrong word, missing/doubled spaces, wrong punctuation in the ad's language (error if clearly wrong, warning if debatable or a style matter)
    - the client's name spelled differently from the brief (error); a wrong or misspelled URL (error)
-   - copy that should be word for word (exactCopy) but differs (error)
+   - copy that should be word for word (exactCopy) but is written differently on this file (error). Don't report exactCopy as missing — that's checked across all files separately.
    - a requirement or client change not followed (error), or only partly (warning)
    - a fact that contradicts the brief/website: price, date, phone, opening hours, offer (error). If the ad states a fact you simply can't find in the brief/website, that's a warning ("couldn't verify"), not an error.
-   - placeholder or leftover text: lorem ipsum, "Rubrik här", "XX:-", another company's name or offer, wrong campaign (error)
+   - placeholder or leftover text: lorem ipsum, "Rubrik här", "XX:-", another company's name or offer, wrong campaign, or words that belong to a different kind of business than this client (e.g. "book a car service" on a barber ad — typical when a template from another client was reused) (error)
    - text that is cut off, covered, overlapping or too small/low-contrast to read (warning)
    - mixed languages where it isn't intended (warning)
    - for 9:16 stories/reels: important text in the top ~14% or bottom ~20% (covered by the app UI) (warning)
@@ -280,8 +281,9 @@ const SET_SCHEMA = {
   required: ["issues"],
 };
 
-const SET_SYSTEM = `You check a whole delivery of ads (all files of one order) against its brief. The individual files were already proofread — do NOT repeat per-file spelling issues.
-Report only problems across the set:
+const SET_SYSTEM = `You check a whole delivery of ads (all files of one order) against its brief. The individual files were already checked; their findings are listed — do NOT repeat any of them, not even reworded.
+Alternative designs ("Alt. 1/2/3") are options for the client: they may differ in design and wording; only flag them if a FACT differs (price, date, phone, brand spelling, URL).
+Report only problems across the set that the per-file findings don't already cover:
 - the same thing written differently between ads/sizes (price, date, CTA, headline, brand name, URL) when it should be the same (error if a fact differs, warning for wording)
 - the number of ads/slides doesn't match what the brief asks for (error), formats the brief asks for that are missing (warning)
 - a requirement or client change from the brief that no file fulfils (error)
@@ -415,6 +417,10 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
   const files: FileResult[] = [];
   const allTexts: string[] = [];
   const perFileTexts: string[] = [];
+  const findingsText = () =>
+    files
+      .flatMap((f) => f.issues.map((i) => `- ${f.file}: ${i.message}${i.found ? ` (found: ${i.found})` : ""}`))
+      .join("\n") || "(none)";
 
   const imageResults = await pool(images, 3, async (a) => {
     const g = await download(a);
@@ -492,7 +498,12 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
   if (perFileTexts.length) {
     const { data: set, usage: su } = await askJson<{ issues: FileReading["issues"] }>({
       system: SET_SYSTEM,
-      content: [{ type: "text", text: `${briefText(brief)}\n\nFILES AND THEIR TEXT\n${perFileTexts.join("\n\n")}${videos.length ? `\n\n(+ ${videos.length} video file(s), not read)` : ""}` }],
+      content: [
+        {
+          type: "text",
+          text: `${briefText(brief)}\n\nFILES AND THEIR TEXT\n${perFileTexts.join("\n\n")}${videos.length ? `\n\n(+ ${videos.length} video file(s), not read)` : ""}\n\nALREADY REPORTED PER FILE (don't repeat)\n${findingsText()}\n${orderIssues.map((i) => `- ${i.message}`).join("\n")}`,
+        },
+      ],
       toolName: "set_check",
       toolDescription: "Problems across the whole delivery.",
       schema: SET_SCHEMA,
