@@ -223,7 +223,19 @@ function compareProduct(m: Match): Issue[] {
 
   // line breaks after "/" come back as "Nederländerna/ Sverige" — not a real difference
   const stripEnd = (x: string) => x.replace(/\s*\/\s*/g, "/").replace(/[.\s]+$/, "");
-  if (stripEnd(e.info) !== stripEnd(a.info)) {
+  // ' vs ’ is the same character to a reader; a missing space after "." may just be a line break in the ad
+  const quotes = (x: string) => x.replace(/[’‘`´]/g, "'");
+  const squash = (x: string) => quotes(stripEnd(x)).replace(/\s+/g, "");
+  if (stripEnd(e.info) !== stripEnd(a.info) && squash(e.info) === squash(a.info)) {
+    if (quotes(stripEnd(e.info)) !== quotes(stripEnd(a.info)))
+      issues.push({
+        severity: "warning",
+        product,
+        message: "Spacing differs from the flyer — check for a missing space (e.g. after a full stop)",
+        expected: e.info,
+        found: a.info,
+      });
+  } else if (stripEnd(e.info) !== stripEnd(a.info)) {
     const d = wordDiff(stripEnd(e.info), stripEnd(a.info));
     const numeric = [...d.missing, ...d.extra].some(hasDigit);
     const onlyPunct = !d.missing.length && !d.extra.length;
