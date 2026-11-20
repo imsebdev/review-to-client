@@ -11,6 +11,8 @@ import { checkFile, productsFromPosterName, similarity, type FileResult, type Is
 import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, type InFile, type Sorted } from "./files";
 import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
+import { runGeneralCheck } from "./general";
+import { appliesTo, readClientFeedback, type ClientChange, type ClientFeedback } from "./feedback";
 
 export type CheckReport = {
   taskId: string;
@@ -22,7 +24,11 @@ export type CheckReport = {
   flyer: string | null;
   orderIssues: Issue[]; // card-level: missing manus/flyer/MVKs/posters
   files: FileResult[];
-  status: "passed" | "warnings" | "failed" | "incomplete";
+  status: "passed" | "warnings" | "failed" | "incomplete" | "skipped";
+  clientChanges: ClientChange[]; // the client's feedback from the card comments, applied on top of the manus
+  mode?: "coop" | "general"; // general = any non-Coop card, checked against card + comments + website
+  sources?: string[]; // what the general check used as its brief
+  briefChanges?: Array<{ quote: string; date: string }>; // client feedback the general check applied
   assigneeEmails: string[];
   tokens: { input: number; output: number };
   ms: number;
@@ -92,6 +98,96 @@ async function readFlyerCached(flyer: Sorted, manus: Manus): Promise<FlyerReadin
   return reading;
 }
 
+type Effective = {
+  expected: FlyerProduct[];
+  manusHeadline: string | null;
+  forbidHeadline: boolean;
+  requiredTexts: Array<{ text: string; quote: string }>;
+  forbiddenTexts: Array<{ text: string; product: string | null; quote: string }>;
+  touched: Array<{ product: string; quote: string }>; // products changed by the client without exact values
+};
+
+const sameProduct = (p: FlyerProduct, name: string) =>
+  similarity(p.heading || p.manusName, name) >= 0.5 || similarity(p.manusName, name) >= 0.5;
+
+function clientProduct(name: string, c: ClientChange): FlyerProduct {
+  return {
+    manusName: name,
+    manusPage: null,
+    found: false,
+    page: null,
+    heading: name,
+    price: c.price ?? "",
+    memberPrice: false,
+    klipp: false,
+    limit: c.limit,
+    info: c.info ?? "",
+    note: "client feedback",
+  };
+}
+
+/** Apply the client's changes (in order) to what one file is expected to show. */
+function applyFeedback(base: { expected: FlyerProduct[]; headline: string | null }, changes: ClientChange[]): Effective {
+  const e: Effective = { expected: [...base.expected], manusHeadline: base.headline, forbidHeadline: false, requiredTexts: [], forbiddenTexts: [], touched: [] };
+  for (const c of changes) {
+    switch (c.kind) {
+      case "headline_set":
+        if (c.text) {
+          e.manusHeadline = c.text;
+          e.forbidHeadline = false;
+        }
+        break;
+      case "headline_remove":
+        e.manusHeadline = null;
+        e.forbidHeadline = true;
+        break;
+      case "text_add":
+        if (c.text) e.requiredTexts.push({ text: c.text, quote: c.quote });
+        break;
+      case "text_remove":
+        if (c.text) e.forbiddenTexts.push({ text: c.text, product: c.product, quote: c.quote });
+        if (c.product) e.touched.push({ product: c.product, quote: c.quote });
+        break;
+      case "product_remove":
+        if (c.product) e.expected = e.expected.filter((p) => !sameProduct(p, c.product!));
+        break;
+      case "product_add":
+        if (c.newProduct) e.expected.push(clientProduct(c.newProduct, c));
+        break;
+      case "product_replace":
+        if (c.product) e.expected = e.expected.filter((p) => !sameProduct(p, c.product!));
+        if (c.newProduct) e.expected.push(clientProduct(c.newProduct, c));
+        break;
+      case "product_update": {
+        const i = c.product ? e.expected.findIndex((p) => sameProduct(p, c.product!)) : -1;
+        if (i < 0) break;
+        const p = { ...e.expected[i] };
+        if (c.newProduct) p.heading = c.newProduct;
+        if (c.price) p.price = c.price;
+        if (c.info) p.info = c.info;
+        if (c.limit) p.limit = c.limit;
+        e.expected[i] = p;
+        // a change we can't express exactly (e.g. "take away 2 för") → don't fail the product on flyer values
+        if (!c.price && !c.info && !c.limit && !c.newProduct) e.touched.push({ product: c.product!, quote: c.quote });
+        break;
+      }
+    }
+  }
+  return e;
+}
+
+/** Issues on a product the client changed loosely become warnings that say why. */
+function softenTouched(r: FileResult, touched: Effective["touched"]): FileResult {
+  if (!touched.length) return r;
+  r.issues = r.issues.map((i) => {
+    if (!i.product || /client/i.test(i.message)) return i;
+    const t = touched.find((x) => similarity(x.product, i.product!) >= 0.5);
+    if (!t || i.severity !== "error") return i;
+    return { ...i, severity: "warning", message: `${i.message} — the client changed this product (“${t.quote}”), check it against her comment` };
+  });
+  return r;
+}
+
 export async function runCheck(taskId: string): Promise<CheckReport> {
   const t0 = Date.now();
   const task = await fetchTask(taskId);
@@ -104,6 +200,11 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     tokens.input += u.input_tokens;
     tokens.output += u.output_tokens;
   };
+
+  const assigneeEmails: string[] = (task.assignees || []).map((a: any) => String(a.email || "").toLowerCase()).filter(Boolean);
+  const looksLikeManus = (task.attachments || []).some((a: any) => /manus/i.test(String(a.title || "")));
+  // Coop weekly orders have a manus or a chain + week in the title; everything else gets the general check
+  if (!looksLikeManus && !(chain && week)) return runGeneralCheck(task, taskId, assigneeEmails, t0);
 
   const files = await sortFiles(await downloadAttachments(task));
   const manusFile = files.filter((f) => f.kind === "manus").sort((a, b) => b.date - a.date)[0];
@@ -185,20 +286,39 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
 
   const headlineNeedsPeriod = !!manus?.rules.some((r) => /alltid punkt i rubrik/i.test(r));
 
+  // the client's comments on the card win over the manus and the flyer
+  let feedback: ClientFeedback = { comments: [], changes: [], usage: null };
+  try {
+    feedback = await readClientFeedback(taskId, assigneeEmails, manus);
+    if (feedback.usage) add(feedback.usage);
+  } catch (e: any) {
+    orderIssues.push({ severity: "warning", message: `Couldn't read the client's comments on the card (${String(e?.message ?? e).slice(0, 120)}) — checked against the manus only` });
+  }
+
   // read + compare every MVK
   const mvkResults = await pool(mvks, 4, async (f) => {
     const bild = manus?.bilder.find((b) => b.index === f.mvk);
     const reading = await readAd(f.data, { poster: false, fileName: f.name });
     add(reading.usage);
-    return checkFile({
-      file: `MVK ${f.mvk}`,
-      kind: "mvk",
-      expected: expectedOf((bild?.products ?? []).map((p) => p.raw)),
-      reading,
-      flyerValidity: flyer?.validity ?? null,
-      manusHeadline: bild?.rubrik ?? null,
-      headlineNeedsPeriod: headlineNeedsPeriod && !!bild?.rubrik,
-    });
+    const eff = applyFeedback(
+      { expected: expectedOf((bild?.products ?? []).map((p) => p.raw)), headline: bild?.rubrik ?? null },
+      feedback.changes.filter((c) => appliesTo(c, { mvk: f.mvk ?? null, poster: false })),
+    );
+    return softenTouched(
+      checkFile({
+        file: `MVK ${f.mvk}`,
+        kind: "mvk",
+        expected: eff.expected,
+        reading,
+        flyerValidity: flyer?.validity ?? null,
+        manusHeadline: eff.manusHeadline,
+        headlineNeedsPeriod: headlineNeedsPeriod && !!eff.manusHeadline,
+        forbidHeadline: eff.forbidHeadline,
+        requiredTexts: eff.requiredTexts,
+        forbiddenTexts: eff.forbiddenTexts,
+      }),
+      eff.touched,
+    );
   });
 
   // posters: read, then decide which poster spec from the manus each file is
@@ -224,16 +344,28 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     if (best >= 0) usedSpecs.add(best);
     const raws = best >= 0 ? posterProducts(manus!, specs[best]).map((p) => p.raw) : [];
     const display = f.name.split("/").pop() || f.name;
-    const result = checkFile({
-      file: display,
-      kind: "poster",
-      expected: expectedOf(raws),
-      reading,
-      flyerValidity: flyer?.validity ?? null,
-      manusHeadline: null,
-      headlineNeedsPeriod: false,
-      fileNameProducts: productsFromPosterName(display),
-    });
+    const eff = applyFeedback(
+      { expected: expectedOf(raws), headline: null },
+      feedback.changes.filter((c) => appliesTo(c, { mvk: null, poster: true }) && !/^headline_/.test(c.kind)),
+    );
+    const result = softenTouched(
+      checkFile({
+        file: display,
+        kind: "poster",
+        expected: eff.expected,
+        reading,
+        flyerValidity: flyer?.validity ?? null,
+        manusHeadline: null,
+        headlineNeedsPeriod: false,
+        fileNameProducts: productsFromPosterName(display),
+        // "add a bauble on MVK3" mustn't be required on the poster unless the change names the poster
+        requiredTexts: eff.requiredTexts.filter((r) =>
+          feedback.changes.some((c) => c.scope === "poster" && c.kind === "text_add" && c.text === r.text),
+        ),
+        forbiddenTexts: eff.forbiddenTexts,
+      }),
+      eff.touched,
+    );
     if (best < 0) result.issues.unshift({ severity: "warning", message: "The manus doesn't ask for a poster — checked spelling and arithmetic only" });
     return result;
   });
@@ -259,7 +391,9 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     orderIssues,
     files: [...mvkResults, ...posterResults],
     status,
-    assigneeEmails: (task.assignees || []).map((a: any) => String(a.email || "").toLowerCase()).filter(Boolean),
+    mode: "coop",
+    clientChanges: feedback.changes,
+    assigneeEmails,
     tokens,
     ms: Date.now() - t0,
   };
