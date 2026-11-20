@@ -54,7 +54,7 @@ async function clickupGet(path: string): Promise<any> {
 }
 
 /** All comments on a card (newest first from ClickUp, paged 25 at a time), plus threaded replies. */
-async function allComments(taskId: string): Promise<any[]> {
+export async function allComments(taskId: string): Promise<any[]> {
   const out: any[] = [];
   let q = "";
   for (let page = 0; page < 12; page++) {

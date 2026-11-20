@@ -49,7 +49,10 @@ function fileBlock(f: FileResult): string {
   const head =
     f.kind === "poster"
       ? `*Poster* ${f.file} — ${f.matchedCount}/${f.expectedCount} products`
-      : `*${f.file}* — ${f.matchedCount}/${f.expectedCount} products`;
+      : f.kind === "mvk"
+        ? `*${f.file}* — ${f.matchedCount}/${f.expectedCount} products`
+        : `*${f.file}*${f.detail ? ` — ${f.detail}` : ""}`;
+  if (f.kind === "video") return `🎬 ${head}`;
   if (!f.issues.length) return `✅ ${head}`;
   return `${errors ? "❌" : "⚠️"} ${head}\n${f.issues.map((i) => "   " + issueLine(i)).join("\n")}`;
 }
@@ -67,14 +70,21 @@ export function slackText(r: CheckReport, opts: { live: boolean }): string {
   const lines: string[] = [];
   lines.push(`${opts.live ? "" : "[TEST] "}🔎 *AI check* — <${r.url}|${r.title.replace(/[<>|]/g, "")}>`);
   lines.push(STATUS_LINE[r.status] + (mentions ? `  ${mentions}` : ""));
-  const meta = [r.sheet && `manus: ${r.sheet}`, r.flyer && `flyer: ${r.flyer}`].filter(Boolean).join(" · ");
+  const meta =
+    r.mode === "general"
+      ? r.sources?.length
+        ? `checked against: ${r.sources.join(" · ")}`
+        : ""
+      : [r.sheet && `manus: ${r.sheet}`, r.flyer && `flyer: ${r.flyer}`].filter(Boolean).join(" · ");
   if (meta) lines.push(`_${meta}_`);
   if (r.clientChanges?.length)
     lines.push("", `💬 *Client feedback on the card* (overrides the manus):`, ...r.clientChanges.map(changeLine));
+  if (r.briefChanges?.length)
+    lines.push("", `💬 *Client feedback on the card* (overrides the brief):`, ...r.briefChanges.map((c) => `• “${c.quote}”${c.date ? ` _(${c.date})_` : ""}`));
   if (r.orderIssues.length) lines.push("", ...r.orderIssues.map(issueLine));
 
-  const bad = r.files.filter((f) => f.issues.length);
-  const good = r.files.filter((f) => !f.issues.length);
+  const bad = r.files.filter((f) => f.issues.length || f.kind === "video");
+  const good = r.files.filter((f) => !f.issues.length && f.kind !== "video");
   if (bad.length) lines.push("", ...bad.map(fileBlock));
   if (good.length) lines.push("", `✅ OK: ${good.map((f) => (f.kind === "poster" ? "poster " + f.file : f.file)).join(", ")}`);
   lines.push("", `_${Math.round(r.ms / 1000)} s · ${r.tokens.input + r.tokens.output} tokens_`);

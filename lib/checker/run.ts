@@ -11,6 +11,7 @@ import { checkFile, productsFromPosterName, similarity, type FileResult, type Is
 import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, type InFile, type Sorted } from "./files";
 import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
+import { runGeneralCheck } from "./general";
 import { appliesTo, readClientFeedback, type ClientChange, type ClientFeedback } from "./feedback";
 
 export type CheckReport = {
@@ -25,6 +26,9 @@ export type CheckReport = {
   files: FileResult[];
   status: "passed" | "warnings" | "failed" | "incomplete" | "skipped";
   clientChanges: ClientChange[]; // the client's feedback from the card comments, applied on top of the manus
+  mode?: "coop" | "general"; // general = any non-Coop card, checked against card + comments + website
+  sources?: string[]; // what the general check used as its brief
+  briefChanges?: Array<{ quote: string; date: string }>; // client feedback the general check applied
   assigneeEmails: string[];
   tokens: { input: number; output: number };
   ms: number;
@@ -199,25 +203,8 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
 
   const assigneeEmails: string[] = (task.assignees || []).map((a: any) => String(a.email || "").toLowerCase()).filter(Boolean);
   const looksLikeManus = (task.attachments || []).some((a: any) => /manus/i.test(String(a.title || "")));
-  if (!chain && !looksLikeManus) {
-    // not a Coop order (e.g. another client's SoMe card) — nothing to check against
-    return {
-      taskId,
-      title,
-      url: task.url || `https://app.clickup.com/t/${taskId}`,
-      chain,
-      week,
-      sheet: null,
-      flyer: null,
-      orderIssues: [],
-      files: [],
-      status: "skipped",
-      clientChanges: [],
-      assigneeEmails,
-      tokens,
-      ms: Date.now() - t0,
-    };
-  }
+  // Coop weekly orders have a manus or a chain + week in the title; everything else gets the general check
+  if (!looksLikeManus && !(chain && week)) return runGeneralCheck(task, taskId, assigneeEmails, t0);
 
   const files = await sortFiles(await downloadAttachments(task));
   const manusFile = files.filter((f) => f.kind === "manus").sort((a, b) => b.date - a.date)[0];
@@ -404,6 +391,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     orderIssues,
     files: [...mvkResults, ...posterResults],
     status,
+    mode: "coop",
     clientChanges: feedback.changes,
     assigneeEmails,
     tokens,

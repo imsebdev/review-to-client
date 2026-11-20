@@ -20,7 +20,8 @@ export type Issue = {
 
 export type FileResult = {
   file: string; // display name, e.g. "MVK 6" or the poster file name
-  kind: "mvk" | "poster";
+  kind: "mvk" | "poster" | "creative" | "html5" | "video";
+  detail?: string; // e.g. "1080x1080" for general checks
   expectedCount: number;
   foundCount: number;
   matchedCount: number;
