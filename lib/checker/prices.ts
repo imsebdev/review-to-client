@@ -44,7 +44,8 @@ export function formatMoney(ore: number): string {
 export function parseOffers(text: string): Offer[] {
   const t = text.replace(/\s+/g, " ").replace(/–/g, "-").toLowerCase();
   const offers: Offer[] = [];
-  const multi = /(\d+)\s*för\s*(\d{1,5}(?:[:.,]\d{2}|:-{1,2}|:)?)\s*(?:\/\s*(st|kg|liter|förp))?/g;
+  // "2 för", "2-för", "2för", "2 st för" (badges often stack "2 / FÖR" and get read with a hyphen)
+  const multi = /(\d+)\s*(?:st\s*)?-?\s*för\s*(\d{1,5}(?:[:.,]\d{2}|:-{1,2}|:)?)\s*(?:\/\s*(st|kg|liter|förp))?/g;
   let m: RegExpExecArray | null;
   while ((m = multi.exec(t))) {
     const total = parseMoney(m[2].replace(/:$/, ":-"));

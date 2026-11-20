@@ -70,6 +70,8 @@ const SYSTEM = `Du korrekturläser färdiga svenska butiksannonser (Coop, X:-TRA
 Skriv av exakt vad som står i bilden – rätta ingenting i avskriften.
 - "headline" = annonsens rubrik (t.ex. "Färska fynd."). Märket "Aktuella priser 16/11–22/11", logotyper och
   slogans är INTE rubrik; finns ingen rubrik: null. Datumen i "Aktuella priser" går till "validity".
+  Har annonsen flera stora rubrikliknande texter (t.ex. "Kanelbullens dag 4/10!", "12-PACK", "Helgerbjudande torsdag–söndag"),
+  välj den mest framträdande som "headline" och lägg ALLA de andra i "otherText", ordagrant.
 - En post i "items" per produkt (produktnamn + pris + info). Hör två produkter ihop med ett gemensamt pris, en post.
 - "price" som tryckt med kolon för ören: 19⁹⁰ → "19:90", "2 för 49:-", "/kg" eller "/st" om det står.
 - "info" = textraden/raderna under produktnamnet, sammanfogade med ett mellanslag.

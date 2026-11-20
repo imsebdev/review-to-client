@@ -316,14 +316,27 @@ export function checkFile(opts: {
   if (fr && ar && (ar[0] < fr[0] || ar[1] > fr[1]))
     issues.push({ severity: "error", message: "Dates are outside the flyer's validity period", expected: opts.flyerValidity!, found: reading.validity! });
 
-  // headline
+  // headline. Ads often carry several big texts (an event splash like "Kanelbullens dag 4/10!",
+  // "12-PACK", "Helgerbjudande …"), so the manus headline only has to appear in one of them.
+  let headline = reading.headline;
   if (opts.manusHeadline) {
-    if (!reading.headline) issues.push({ severity: "warning", message: "Headline from the manus is missing", expected: opts.manusHeadline });
-    else if (key(reading.headline) !== key(opts.manusHeadline))
+    const want = key(opts.manusHeadline);
+    const candidates = [
+      reading.headline,
+      ...reading.otherText,
+      ...reading.items.flatMap((i) => [i.name, ...i.splashes]),
+    ].filter((t): t is string => !!t && !!key(t));
+    const hit = candidates.find((t) => {
+      const k = key(t);
+      return k === want || (want.length >= 6 && (k.includes(want) || want.includes(k) && k.length >= 6)) || similarity(t, opts.manusHeadline!) >= 0.8;
+    });
+    if (hit) headline = hit;
+    else if (!reading.headline) issues.push({ severity: "warning", message: "Headline from the manus is missing", expected: opts.manusHeadline });
+    else
       issues.push({ severity: "warning", message: "Headline differs from the manus", expected: opts.manusHeadline, found: reading.headline });
   }
-  if (opts.headlineNeedsPeriod && reading.headline && !/[.!?]$/.test(norm(reading.headline)))
-    issues.push({ severity: "warning", message: 'Headline should end with a period ("Alltid punkt i rubrik")', found: reading.headline });
+  if (opts.headlineNeedsPeriod && headline && !/[.!?]$/.test(norm(headline)))
+    issues.push({ severity: "warning", message: 'Headline should end with a period ("Alltid punkt i rubrik")', found: headline });
 
   // poster file name should name products that are on the poster
   for (const p of opts.fileNameProducts ?? []) {
