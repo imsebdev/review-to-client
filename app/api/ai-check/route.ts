@@ -33,6 +33,10 @@ function extractTaskId(req: NextRequest, body: any): string {
 async function checkAndReport(taskId: string, live: boolean) {
   try {
     const report = await runCheck(taskId);
+    if (report.status === "skipped") {
+      console.log(`ai-check ${taskId}: skipped (not a Coop order: "${report.title}")`);
+      return { report, slack: "skipped", comment: "skipped" };
+    }
     const slack = await postSlack(slackText(report, { live }));
     const comment = live ? await postClickUpComment(taskId, clickupText(report)) : "skipped (test mode)";
     console.log(`ai-check ${taskId}: ${report.status} slack=${slack} comment=${comment} ${report.ms}ms`, report.tokens);

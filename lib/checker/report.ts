@@ -26,7 +26,14 @@ const STATUS_LINE: Record<CheckReport["status"], string> = {
   warnings: "⚠️ *Passed with warnings* — no errors, but have a look at the notes",
   failed: "❌ *Needs fixing*",
   incomplete: "⚠️ *Couldn't check everything* — see below; nothing here counts as approved",
+  skipped: "⏭️ *Skipped* — not a Coop order",
 };
+
+function changeLine(c: CheckReport["clientChanges"][number]): string {
+  const where = c.scope === "all" ? "all" : c.scope === "poster" ? "poster" : (c.mvks || []).map((n) => `MVK ${n}`).join(", ");
+  const tag = c.kind === "visual" || c.kind === "other" ? "👀 check by eye" : "✔︎ checked";
+  return `• ${tag} (${where}): “${c.quote}”`;
+}
 
 function issueLine(i: Issue): string {
   const icon = i.severity === "error" ? "❌" : "⚠️";
@@ -62,6 +69,8 @@ export function slackText(r: CheckReport, opts: { live: boolean }): string {
   lines.push(STATUS_LINE[r.status] + (mentions ? `  ${mentions}` : ""));
   const meta = [r.sheet && `manus: ${r.sheet}`, r.flyer && `flyer: ${r.flyer}`].filter(Boolean).join(" · ");
   if (meta) lines.push(`_${meta}_`);
+  if (r.clientChanges?.length)
+    lines.push("", `💬 *Client feedback on the card* (overrides the manus):`, ...r.clientChanges.map(changeLine));
   if (r.orderIssues.length) lines.push("", ...r.orderIssues.map(issueLine));
 
   const bad = r.files.filter((f) => f.issues.length);
