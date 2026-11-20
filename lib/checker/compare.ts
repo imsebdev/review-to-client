@@ -323,6 +323,7 @@ export function checkFile(opts: {
   for (const t of reading.textIssues) {
     if (key(t.text) === key(t.suggestion)) continue; // "Röda äpplen" → "Röda äpplen"
     if (alreadyFound.has(key(t.text))) continue; // same thing as an arithmetic finding
+    if (Array.from(alreadyFound).some((f) => f.includes(key(t.text)))) continue; // already shown in an info-line diff
     issues.push({ severity: "warning", message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion });
   }
   for (const u of reading.unreadable) issues.push({ severity: "warning", message: "Couldn't read reliably — check by eye", found: u });
