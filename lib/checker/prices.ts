@@ -151,7 +151,7 @@ export function checkJfr(priceText: string, info: string): Finding[] {
     const fmt = (a: number, b: number) => (a === b ? formatMoney(a) : `${formatMoney(a)}-${formatMoney(b)}`);
     findings.push({
       ok,
-      message: ok ? "Jfr-pris stämmer" : "Jfr-pris stämmer inte med pris och vikt",
+      message: ok ? "Jfr-pris is correct" : "Jfr-pris doesn't match the price and pack size",
       expected: `${fmt(expMin, expMax)}/${p.unit}${p.tier ? ` (vid köp av ${p.tier})` : ""}`,
       found: `${fmt(p.min, p.max)}/${p.unit}`,
     });
@@ -177,7 +177,7 @@ export function checkSaving(priceText: string, info: string, savingText: string)
   const ok = Math.abs(expected - savOre) <= 1;
   return {
     ok,
-    message: ok ? "Du sparar stämmer" : "\"Du sparar\" stämmer inte med ordinarie pris",
+    message: ok ? '"Du sparar" is correct' : '"Du sparar" doesn\'t match the ordinary price'  ,
     expected: formatMoney(expected),
     found: formatMoney(savOre),
   };
@@ -191,8 +191,14 @@ export function checkWeightSplash(splash: string, info: string): Finding | null 
   const ok = s.min >= q.min - 1e-9 && s.max <= q.max + 1e-9;
   return {
     ok,
-    message: ok ? "Viktsplash stämmer" : "Viktsplash stämmer inte med produktinfo",
-    expected: `${q.min === q.max ? q.min : `${q.min}-${q.max}`} ${q.unit}`,
+    message: ok ? "Weight splash is correct" : "Weight splash doesn't match the info line",
+    expected: fmtQty(q),
     found: splash.trim(),
   };
+}
+
+function fmtQty(q: Quantity): string {
+  const one = (v: number) =>
+    q.unit === "kg" ? (v < 1 ? `${Math.round(v * 1000)} g` : `${v} kg`) : q.unit === "liter" ? (v < 1 ? `${Math.round(v * 1000)} ml` : `${v} liter`) : `${v} st`;
+  return q.min === q.max ? one(q.min) : `${one(q.min)}-${one(q.max)}`;
 }
