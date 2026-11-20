@@ -60,9 +60,14 @@ Regler:
 - Rätta ALDRIG fel i bladet. Gissa aldrig. Är du osäker, skriv det i "note".
 - "price" = priset/erbjudandet som tryckt, inklusive mekanik och enhet: "2 för 99:-", "49:90/kg", "45:-/st", "5 för 100:-", "5 för 55:- 10 för 100:-". Upphöjda ören skrivs med kolon (49 90 → 49:90).
 - "info" = textraden/raderna under produktnamnet (leverantör, val, vikt, Jfr-pris, Ord. pris, Pant tillkommer …), sammanfogade med ett mellanslag, utan produktnamnet och utan MAX-raden.
-- "limit" = rad som "MAX 2 ST/HUSHÅLL." exakt som tryckt, annars null.
+- "limit" = rad som "MAX 2 ST/HUSHÅLL." exakt som tryckt, annars null. Den står direkt ovanför produktnamnet i SAMMA
+  textblock (samma kolumn/ruta). En MAX-rad som hör till en grannprodukt i en annan kolumn eller ruta räknas inte –
+  kontrollera vänsterkanten: MAX-raden och produktnamnet börjar i samma x-position. Vid minsta tvekan: null + note.
 - Sidnumret i manus (s1, s 5) är en ledtråd; produkten kan finnas på en annan sida. Manusnamnet kan vara slarvigt stavat ("Hägen daszs" = Häagen-Dazs, "Sötpotsatis" = Sötpotatis) eller allmänt ("Äpplen" = "Äpplen Pink Lady").
 - Hittas produkten inte i bladet: found=false och tomma strängar.`;
+
+/** Bump when the prompt changes so cached readings are not reused. */
+export const FLYER_PROMPT_VERSION = "2";
 
 export async function readFlyer(pdf: Uint8Array, products: ManusProduct[]): Promise<FlyerReading> {
   const list = products.map((p) => `- ${p.name}${p.page ? ` (sida ${p.page})` : ""}`).join("\n");

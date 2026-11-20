@@ -9,7 +9,7 @@ import { fetchTask } from "../clickup-task";
 import { readAd, type AdReading } from "./ad";
 import { checkFile, productsFromPosterName, similarity, type FileResult, type Issue } from "./compare";
 import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, type InFile, type Sorted } from "./files";
-import { readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
+import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
 
 export type CheckReport = {
@@ -77,6 +77,7 @@ async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Prom
 async function readFlyerCached(flyer: Sorted, manus: Manus): Promise<FlyerReading> {
   const products = manus.bilder.flatMap((b) => b.products);
   const hash = createHash("sha1")
+    .update(FLYER_PROMPT_VERSION)
     .update(flyer.data)
     .update(JSON.stringify(products.map((p) => p.raw)))
     .digest("hex");
@@ -196,7 +197,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
       reading,
       flyerValidity: flyer?.validity ?? null,
       manusHeadline: bild?.rubrik ?? null,
-      headlineNeedsPeriod,
+      headlineNeedsPeriod: headlineNeedsPeriod && !!bild?.rubrik,
     });
   });
 
