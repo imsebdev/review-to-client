@@ -20,7 +20,10 @@ export type Sorted = {
   data: Uint8Array;
   date: number;
   mvk?: number; // MVK number for kind "mvk"
+  format?: string; // "1080x1920" when the file name says so (story versions of an MVK)
   flyerWeek?: number; // week number for kind "flyer"
+  zip?: string; // the zip it came from
+  replaced?: { name: string; data: Uint8Array }; // an older/other copy of the same file (zip vs loose)
 };
 
 const IMAGE = /\.(jpe?g|png|webp)$/i;
@@ -30,40 +33,73 @@ export function classify(name: string): { kind: Kind; mvk?: number; flyerWeek?: 
   if (/manus.*\.xlsx?$/i.test(base)) return { kind: "manus" };
   const flyer = base.match(/^[a-z]{2}_(\d{2})(\d{2})_.*\.pdf$/i);
   if (flyer) return { kind: "flyer", flyerWeek: Number(flyer[2]) };
+  // print files of posters come as PDF ("… 70x100 - Skylt - Tryckfil.pdf")
+  if (/\.pdf$/i.test(base) && /70\s*x\s*100|skyl+t|poster|tryck/i.test(name)) return { kind: "poster" };
   if (!IMAGE.test(base)) return { kind: "other" };
-  if (/frilagda/i.test(name)) return { kind: "cutout" };
+  if (/frilagda|priser\s*(&|och)\s*info|cut-?outs?/i.test(name)) return { kind: "cutout" };
   if (/70\s*x\s*100|skyl+t|poster/i.test(base)) return { kind: "poster" };
   const mvk = base.match(/mvk\s*[-_ ]?\s*(\d{1,2})/i);
   if (mvk) return { kind: "mvk", mvk: Number(mvk[1]) };
   return { kind: "other" };
 }
 
-/** Unpack zips and classify everything. Newer files win when the same name appears twice. */
+async function unzip(name: string, data: Uint8Array, date: number, out: Sorted[], depth: number): Promise<void> {
+  const zip = await JSZip.loadAsync(data);
+  const entries = Object.values(zip.files).filter((e) => !e.dir && !/__MACOSX|(^|\/)\./.test(e.name));
+  for (const e of entries) {
+    const inner = `${name}/${fixZipName(e.name)}`;
+    const bytes = await e.async("uint8array");
+    if (/\.zip$/i.test(e.name) && depth < 2) await unzip(inner, bytes, date, out, depth + 1);
+    else out.push({ name: inner, date, data: bytes, zip: name.split(".zip/")[0].replace(/\.zip$/i, "") + ".zip", ...classify(inner) });
+  }
+}
+
+/** Unpack zips (also zips inside zips) and classify everything. Newer files win when the same file appears twice. */
 export async function sortFiles(files: InFile[]): Promise<Sorted[]> {
   const out: Sorted[] = [];
   for (const f of files) {
     const date = f.date ?? 0;
-    if (/\.zip$/i.test(f.name)) {
-      const zip = await JSZip.loadAsync(f.data);
-      const entries = Object.values(zip.files).filter((e) => !e.dir && !/__MACOSX|\/\.|^\./.test(e.name));
-      for (const e of entries) {
-        const name = `${f.name}/${fixZipName(e.name)}`;
-        out.push({ name, date, data: await e.async("uint8array"), ...classify(name) });
-      }
-    } else {
-      out.push({ name: f.name, date, data: f.data, ...classify(f.name) });
-    }
+    if (/\.zip$/i.test(f.name)) await unzip(f.name, f.data, date, out, 0);
+    else out.push({ name: f.name, date, data: f.data, ...classify(f.name) });
   }
-  // de-duplicate: same MVK number or same poster file name → keep the newest
+  for (const s of out) {
+    const fmt = baseName(s.name).match(/(\d{3,4})\s*x\s*(\d{3,4})/);
+    if (s.kind === "mvk" && fmt && fmt[1] !== fmt[2]) s.format = `${fmt[1]}x${fmt[2]}`;
+  }
+  // de-duplicate: same MVK (and format) or same poster → keep the newest, remember the other copy
   const best = new Map<string, Sorted>();
   for (const s of out) {
+    const ext = (s.name.match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase() === "pdf" ? "pdf" : "img";
     const key =
-      s.kind === "mvk" ? `mvk:${s.mvk}` : s.kind === "poster" ? `poster:${posterKey(baseName(s.name))}` : `x:${s.name}`;
+      s.kind === "mvk"
+        ? `mvk:${s.mvk}:${s.format ?? ""}`
+        : s.kind === "poster"
+          ? `poster:${posterKey(baseName(s.name))}:${ext}`
+          : `x:${s.name}`;
     const prev = best.get(key);
-    if (!prev || s.date > prev.date || (s.date === prev.date && !s.name.includes(".zip/") && prev.name.includes(".zip/")))
+    const better = !prev || s.date > prev.date || (s.date === prev.date && !s.name.includes(".zip/") && prev.name.includes(".zip/"));
+    if (better) {
+      if (prev) s.replaced = { name: prev.name, data: prev.data };
       best.set(key, s);
+    } else if (prev && !prev.replaced) prev.replaced = { name: s.name, data: s.data };
   }
   return Array.from(best.values());
+}
+
+/** One line per zip: what was found inside, so the team sees nothing was skipped. */
+export function zipSummary(files: Sorted[], allNames: string[]): string[] {
+  const zips = Array.from(new Set(allNames.filter((n) => n.includes(".zip/")).map((n) => n.split(".zip/")[0] + ".zip")));
+  return zips.map((z) => {
+    const inside = files.filter((f) => f.name.startsWith(z + "/"));
+    const count = (k: string) => inside.filter((f) => f.kind === k).length;
+    const parts = [
+      count("mvk") && `${count("mvk")} MVK`,
+      count("poster") && `${count("poster")} poster file(s)`,
+      count("cutout") && `${count("cutout")} cut-outs`,
+      count("other") && `${count("other")} other file(s)`,
+    ].filter(Boolean);
+    return `📦 ${z.split("/").pop()}: ${parts.join(", ") || "nothing the checker can read"}`;
+  });
 }
 
 /** Pick the flyer for the order's week; cards sometimes carry a later week's flyer as inspiration. */

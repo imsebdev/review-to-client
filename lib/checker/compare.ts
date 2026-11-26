@@ -20,7 +20,8 @@ export type Issue = {
 
 export type FileResult = {
   file: string; // display name, e.g. "MVK 6" or the poster file name
-  kind: "mvk" | "poster";
+  kind: "mvk" | "poster" | "cutout" | "other" | "creative" | "html5" | "video";
+  detail?: string; // e.g. "1080x1080" for general checks
   expectedCount: number;
   foundCount: number;
   matchedCount: number;
@@ -60,7 +61,7 @@ export function similarity(a: string, b: string): number {
   return (2 * inter) / (A.size + B.size);
 }
 
-function samePrice(a: string, b: string): boolean {
+export function samePrice(a: string, b: string): boolean {
   const pa = parseOffers(a);
   const pb = parseOffers(b);
   if (!pa.length || !pb.length || pa.length !== pb.length) return false;
@@ -275,17 +276,43 @@ function arithmetic(item: AdItem, product: string): Issue[] {
   return issues;
 }
 
+// ---------- texts on the ad ----------
+
+function allTexts(r: AdReading): string[] {
+  return [
+    r.headline ?? "",
+    ...r.otherText,
+    ...r.items.flatMap((i) => [i.name, i.price, i.info, i.limit ?? "", ...i.splashes]),
+  ].filter((t) => !!key(t));
+}
+
+function textMatches(t: string, want: string): boolean {
+  const k = key(t);
+  const w = key(want);
+  if (!k || !w) return false;
+  return k === w || (w.length >= 6 && (k.includes(w) || (w.includes(k) && k.length >= 6))) || similarity(t, want) >= 0.8;
+}
+
+/** The first text on the ad that matches `want` (headline, splashes, item names…), or null. */
+export function findText(r: AdReading, want: string): string | null {
+  return allTexts(r).find((t) => textMatches(t, want)) ?? null;
+}
+
 // ---------- per file ----------
 
 export function checkFile(opts: {
   file: string;
-  kind: "mvk" | "poster";
+  kind: "mvk" | "poster" | "cutout";
   expected: FlyerProduct[];
   reading: AdReading;
   flyerValidity: string | null;
   manusHeadline: string | null;
   headlineNeedsPeriod: boolean;
   fileNameProducts?: string[]; // product words taken from a poster's file name
+  // from the client's feedback on the card (overrides the manus)
+  forbidHeadline?: boolean; // client asked for no headline
+  requiredTexts?: Array<{ text: string; quote: string }>; // must appear on the ad
+  forbiddenTexts?: Array<{ text: string; product: string | null; quote: string }>; // must not appear
 }): FileResult {
   const { reading } = opts;
   const issues: Issue[] = [];
@@ -320,21 +347,38 @@ export function checkFile(opts: {
   // "12-PACK", "Helgerbjudande …"), so the manus headline only has to appear in one of them.
   let headline = reading.headline;
   if (opts.manusHeadline) {
-    const want = key(opts.manusHeadline);
-    const candidates = [
-      reading.headline,
-      ...reading.otherText,
-      ...reading.items.flatMap((i) => [i.name, ...i.splashes]),
-    ].filter((t): t is string => !!t && !!key(t));
-    const hit = candidates.find((t) => {
-      const k = key(t);
-      return k === want || (want.length >= 6 && (k.includes(want) || want.includes(k) && k.length >= 6)) || similarity(t, opts.manusHeadline!) >= 0.8;
-    });
+    const hit = findText(reading, opts.manusHeadline);
     if (hit) headline = hit;
     else if (!reading.headline) issues.push({ severity: "warning", message: "Headline from the manus is missing", expected: opts.manusHeadline });
     else
       issues.push({ severity: "warning", message: "Headline differs from the manus", expected: opts.manusHeadline, found: reading.headline });
+  } else if (opts.forbidHeadline && reading.headline) {
+    // a text the client asked for (e.g. a bauble "Julstöket kan börja!") may be read as the headline
+    const wanted = (opts.requiredTexts ?? []).some((r) => textMatches(reading.headline!, r.text));
+    if (!wanted) {
+      issues.push({ severity: "error", message: "The client asked to remove the headline", found: reading.headline });
+      headline = null;
+    }
   }
+  for (const r of opts.requiredTexts ?? [])
+    if (!findText(reading, r.text))
+      issues.push({ severity: "error", message: `Text the client asked for is missing (client: “${r.quote}”)`, expected: r.text });
+  for (const f of opts.forbiddenTexts ?? []) {
+    const where = f.product
+      ? reading.items
+          .filter((i) => similarity(i.name, f.product!) >= 0.5)
+          .flatMap((i) => [i.name, i.price, i.info, i.limit ?? "", ...i.splashes])
+      : allTexts(reading);
+    const hit = where.find((t) => t && key(t).includes(key(f.text)));
+    if (hit)
+      issues.push({
+        severity: "error",
+        product: f.product ?? undefined,
+        message: `The client asked to remove this (client: “${f.quote}”)`,
+        found: hit,
+      });
+  }
+
   if (opts.headlineNeedsPeriod && headline && !/[.!?]$/.test(norm(headline)))
     issues.push({ severity: "warning", message: 'Headline should end with a period ("Alltid punkt i rubrik")', found: headline });
 
@@ -369,8 +413,10 @@ export function productsFromPosterName(fileName: string): string[] {
   const m = base.match(/(?:veckoboost|v)\s*\.?\s*\d{1,2}\s*-\s*(.+?)\s*-?\s*70\s*x\s*100/i);
   if (!m) return [];
   if (/favorit|skyl|poster|samlad|alla/i.test(m[1])) return [];
+  // theme words in file names ("Jul", "Påsk", "Christmas") aren't products
+  const theme = /^(jul|julen|jultema|christmas|xmas|påsk|nyår|midsommar|halloween|tema|theme|veckoboost|skyl+t|poster|final|ny|new|v\d+)$/i;
   return m[1]
     .split(/\s*&\s*|\s*,\s*|\s+och\s+/i)
     .map((s) => s.trim())
-    .filter((s) => s.length > 2);
+    .filter((s) => s.length > 2 && !theme.test(s));
 }

@@ -6,11 +6,15 @@
 import { createHash } from "crypto";
 import { Redis } from "@upstash/redis";
 import { fetchTask } from "../clickup-task";
-import { readAd, type AdReading } from "./ad";
-import { checkFile, productsFromPosterName, similarity, type FileResult, type Issue } from "./compare";
-import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, type InFile, type Sorted } from "./files";
+import sharp from "sharp";
+import { readAd, readCutouts, type AdReading } from "./ad";
+import { checkFile, productsFromPosterName, samePrice, similarity, type FileResult, type Issue } from "./compare";
+import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, zipSummary, type InFile, type Sorted } from "./files";
 import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
+import { runGeneralCheck } from "./general";
+import { blameSource, proofreadSources, type SourceTypo } from "./source-proofread";
+import { appliesTo, readClientFeedback, type ClientChange, type ClientFeedback } from "./feedback";
 
 export type CheckReport = {
   taskId: string;
@@ -22,7 +26,13 @@ export type CheckReport = {
   flyer: string | null;
   orderIssues: Issue[]; // card-level: missing manus/flyer/MVKs/posters
   files: FileResult[];
-  status: "passed" | "warnings" | "failed" | "incomplete";
+  status: "passed" | "warnings" | "failed" | "incomplete" | "skipped";
+  clientChanges: ClientChange[]; // the client's feedback from the card comments, applied on top of the manus
+  mode?: "coop" | "general"; // general = any non-Coop card, checked against card + comments + website
+  sources?: string[]; // what the general check used as its brief
+  briefChanges?: Array<{ quote: string; date: string }>; // client feedback the general check applied
+  notes?: string[]; // informational lines, e.g. what was inside each zip
+  movedBy?: string; // email of whoever moved the card into internal review (only they get tagged)
   assigneeEmails: string[];
   tokens: { input: number; output: number };
   ms: number;
@@ -92,6 +102,106 @@ async function readFlyerCached(flyer: Sorted, manus: Manus): Promise<FlyerReadin
   return reading;
 }
 
+type Effective = {
+  expected: FlyerProduct[];
+  manusHeadline: string | null;
+  forbidHeadline: boolean;
+  requiredTexts: Array<{ text: string; quote: string }>;
+  forbiddenTexts: Array<{ text: string; product: string | null; quote: string }>;
+  touched: Array<{ product: string; quote: string }>; // products changed by the client without exact values
+};
+
+const sameProduct = (p: FlyerProduct, name: string) =>
+  similarity(p.heading || p.manusName, name) >= 0.5 || similarity(p.manusName, name) >= 0.5;
+
+function clientProduct(name: string, c: ClientChange): FlyerProduct {
+  return {
+    manusName: name,
+    manusPage: null,
+    found: false,
+    page: null,
+    heading: name,
+    price: c.price ?? "",
+    memberPrice: false,
+    klipp: false,
+    limit: c.limit,
+    info: c.info ?? "",
+    note: "client feedback",
+  };
+}
+
+/** Apply the client's changes (in order) to what one file is expected to show. */
+function applyFeedback(base: { expected: FlyerProduct[]; headline: string | null }, changes: ClientChange[]): Effective {
+  const e: Effective = { expected: [...base.expected], manusHeadline: base.headline, forbidHeadline: false, requiredTexts: [], forbiddenTexts: [], touched: [] };
+  for (const c of changes) {
+    switch (c.kind) {
+      case "headline_set":
+        if (c.text) {
+          e.manusHeadline = c.text;
+          e.forbidHeadline = false;
+        }
+        break;
+      case "headline_remove":
+        e.manusHeadline = null;
+        e.forbidHeadline = true;
+        break;
+      case "text_add":
+        if (c.text) e.requiredTexts.push({ text: c.text, quote: c.quote });
+        break;
+      case "text_remove":
+        if (c.text) e.forbiddenTexts.push({ text: c.text, product: c.product, quote: c.quote });
+        if (c.product) e.touched.push({ product: c.product, quote: c.quote });
+        break;
+      case "product_remove":
+        if (c.product) e.expected = e.expected.filter((p) => !sameProduct(p, c.product!));
+        break;
+      case "product_add":
+        if (c.newProduct) e.expected.push(clientProduct(c.newProduct, c));
+        break;
+      case "product_replace":
+        if (c.product) e.expected = e.expected.filter((p) => !sameProduct(p, c.product!));
+        if (c.newProduct) e.expected.push(clientProduct(c.newProduct, c));
+        break;
+      case "product_update": {
+        const i = c.product ? e.expected.findIndex((p) => sameProduct(p, c.product!)) : -1;
+        if (i < 0) break;
+        const p = { ...e.expected[i] };
+        if (c.newProduct) p.heading = c.newProduct;
+        if (c.price) p.price = c.price;
+        if (c.info) p.info = c.info;
+        if (c.limit) p.limit = c.limit;
+        e.expected[i] = p;
+        // a change we can't express exactly (e.g. "take away 2 för") → don't fail the product on flyer values
+        if (!c.price && !c.info && !c.limit && !c.newProduct) e.touched.push({ product: c.product!, quote: c.quote });
+        break;
+      }
+    }
+  }
+  return e;
+}
+
+/** Issues on a product the client changed loosely become warnings that say why. */
+function softenTouched(r: FileResult, touched: Effective["touched"]): FileResult {
+  if (!touched.length) return r;
+  r.issues = r.issues.map((i) => {
+    if (!i.product || /client/i.test(i.message)) return i;
+    const t = touched.find((x) => similarity(x.product, i.product!) >= 0.5);
+    if (!t || i.severity !== "error") return i;
+    return { ...i, severity: "warning", message: `${i.message} — the client changed this product (“${t.quote}”), check it against her comment` };
+  });
+  return r;
+}
+
+/** Two exports of the same ad that don't look alike (a text fix, a swapped product…). Small JPEG noise is ignored. */
+async function looksDifferent(a: Uint8Array, b: Uint8Array): Promise<boolean> {
+  if (a.length === b.length && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0) return false;
+  const px = (d: Uint8Array) => sharp(Buffer.from(d)).flatten({ background: "#ffffff" }).resize(256, 256, { fit: "fill" }).greyscale().raw().toBuffer();
+  const [x, y] = await Promise.all([px(a), px(b)]);
+  let changed = 0;
+  for (let i = 0; i < x.length; i++) if (Math.abs(x[i] - y[i]) > 48) changed++;
+  return changed >= 8;
+}
+
 export async function runCheck(taskId: string): Promise<CheckReport> {
   const t0 = Date.now();
   const task = await fetchTask(taskId);
@@ -105,11 +215,24 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     tokens.output += u.output_tokens;
   };
 
-  const files = await sortFiles(await downloadAttachments(task));
+  const assigneeEmails: string[] = (task.assignees || []).map((a: any) => String(a.email || "").toLowerCase()).filter(Boolean);
+  const looksLikeManus = (task.attachments || []).some((a: any) => /manus/i.test(String(a.title || "")));
+  // Coop weekly orders have a manus or a chain + week in the title; everything else gets the general check
+  if (!looksLikeManus && !(chain && week)) return runGeneralCheck(task, taskId, assigneeEmails, t0);
+
+  const downloaded = await downloadAttachments(task);
+  const files = await sortFiles(downloaded);
   const manusFile = files.filter((f) => f.kind === "manus").sort((a, b) => b.date - a.date)[0];
   const flyerFile = week ? pickFlyer(files, week) : null;
   const mvks = files.filter((f) => f.kind === "mvk").sort((a, b) => a.mvk! - b.mvk!);
-  const posters = files.filter((f) => f.kind === "poster");
+  const isPdfName = (n: string) => /\.pdf$/i.test(n);
+  const tooBig = files.filter((f) => f.kind === "poster" && isPdfName(f.name) && f.data.length > 24 * 1024 * 1024);
+  for (const f of tooBig)
+    orderIssues.push({ severity: "warning", message: "Poster print file (PDF) is too large to read — check it by eye against the poster JPG", found: f.name.split("/").pop() });
+  const posters = files.filter((f) => f.kind === "poster" && !tooBig.includes(f));
+  const cutouts = files.filter((f) => f.kind === "cutout");
+  // other images inside zips (extra sizes, story versions without MVK in the name…): spelling only
+  const otherImages = files.filter((f) => f.kind === "other" && f.zip && /\.(jpe?g|png|webp)$/i.test(f.name)).slice(0, 12);
 
   let manus: Manus | null = null;
   let sheet: string | null = null;
@@ -185,20 +308,69 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
 
   const headlineNeedsPeriod = !!manus?.rules.some((r) => /alltid punkt i rubrik/i.test(r));
 
+  // the client's comments on the card win over the manus and the flyer
+  let feedback: ClientFeedback = { comments: [], changes: [], usage: null };
+  try {
+    feedback = await readClientFeedback(taskId, assigneeEmails, manus);
+    if (feedback.usage) add(feedback.usage);
+  } catch (e: any) {
+    orderIssues.push({ severity: "warning", message: `Couldn't read the client's comments on the card (${String(e?.message ?? e).slice(0, 120)}) — checked against the manus only` });
+  }
+
+  // Coop's own texts (flyer + manus headlines) can have typos — find them once, so an ad that
+  // copied one isn't blamed for it and one that fixed it isn't flagged as "differs from the flyer"
+  let sourceTypos: SourceTypo[] = [];
+  if (manus || flyer) {
+    const items = [
+      ...(flyer?.products ?? [])
+        .filter((p) => p.found)
+        .flatMap((p) => [
+          { where: `flyer p. ${p.page ?? "?"} (${p.heading})`, text: p.heading },
+          { where: `flyer p. ${p.page ?? "?"} (${p.heading})`, text: p.info },
+        ]),
+      ...(manus?.bilder ?? []).filter((b) => b.rubrik).map((b) => ({ where: `manus Bild ${b.index} headline`, text: b.rubrik! })),
+      ...feedback.changes.filter((c) => c.text).map((c) => ({ where: "client comment", text: c.text! })),
+    ];
+    try {
+      const r = await proofreadSources(items);
+      if (r.usage) add(r.usage);
+      sourceTypos = r.typos;
+      for (const t of sourceTypos)
+        orderIssues.push({
+          severity: "warning",
+          message: `Typo in Coop's own material (${t.where}): ${t.issue} — ask Pernilla before correcting it in the ad`,
+          found: t.text,
+          expected: t.suggestion,
+        });
+    } catch {
+      // proofreading the source is a bonus — never fail the check over it
+    }
+  }
+
   // read + compare every MVK
   const mvkResults = await pool(mvks, 4, async (f) => {
     const bild = manus?.bilder.find((b) => b.index === f.mvk);
     const reading = await readAd(f.data, { poster: false, fileName: f.name });
     add(reading.usage);
-    return checkFile({
-      file: `MVK ${f.mvk}`,
-      kind: "mvk",
-      expected: expectedOf((bild?.products ?? []).map((p) => p.raw)),
-      reading,
-      flyerValidity: flyer?.validity ?? null,
-      manusHeadline: bild?.rubrik ?? null,
-      headlineNeedsPeriod: headlineNeedsPeriod && !!bild?.rubrik,
-    });
+    const eff = applyFeedback(
+      { expected: expectedOf((bild?.products ?? []).map((p) => p.raw)), headline: bild?.rubrik ?? null },
+      feedback.changes.filter((c) => appliesTo(c, { mvk: f.mvk ?? null, poster: false })),
+    );
+    return softenTouched(
+      checkFile({
+        file: `MVK ${f.mvk}${f.format ? ` (${f.format})` : ""}`,
+        kind: "mvk",
+        expected: eff.expected,
+        reading,
+        flyerValidity: flyer?.validity ?? null,
+        manusHeadline: eff.manusHeadline,
+        headlineNeedsPeriod: headlineNeedsPeriod && !!eff.manusHeadline,
+        forbidHeadline: eff.forbidHeadline,
+        requiredTexts: eff.requiredTexts,
+        forbiddenTexts: eff.forbiddenTexts,
+      }),
+      eff.touched,
+    );
   });
 
   // posters: read, then decide which poster spec from the manus each file is
@@ -224,21 +396,119 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     if (best >= 0) usedSpecs.add(best);
     const raws = best >= 0 ? posterProducts(manus!, specs[best]).map((p) => p.raw) : [];
     const display = f.name.split("/").pop() || f.name;
-    const result = checkFile({
-      file: display,
-      kind: "poster",
-      expected: expectedOf(raws),
-      reading,
-      flyerValidity: flyer?.validity ?? null,
-      manusHeadline: null,
-      headlineNeedsPeriod: false,
-      fileNameProducts: productsFromPosterName(display),
-    });
+    const eff = applyFeedback(
+      { expected: expectedOf(raws), headline: null },
+      feedback.changes.filter((c) => appliesTo(c, { mvk: null, poster: true }) && !/^headline_/.test(c.kind)),
+    );
+    const result = softenTouched(
+      checkFile({
+        file: display,
+        kind: "poster",
+        expected: eff.expected,
+        reading,
+        flyerValidity: flyer?.validity ?? null,
+        manusHeadline: null,
+        headlineNeedsPeriod: false,
+        fileNameProducts: productsFromPosterName(display),
+        // "add a bauble on MVK3" mustn't be required on the poster unless the change names the poster
+        requiredTexts: eff.requiredTexts.filter((r) =>
+          feedback.changes.some((c) => c.scope === "poster" && c.kind === "text_add" && c.text === r.text),
+        ),
+        forbiddenTexts: eff.forbiddenTexts,
+      }),
+      eff.touched,
+    );
     if (best < 0) result.issues.unshift({ severity: "warning", message: "The manus doesn't ask for a poster — checked spelling and arithmetic only" });
     return result;
   });
 
-  const all = [...orderIssues, ...mvkResults.flatMap((r) => r.issues), ...posterResults.flatMap((r) => r.issues)];
+  // cut-outs ("Frilagda priser & info"): each one is checked against the product it belongs to
+  const allExpected = expectedOf((manus?.bilder ?? []).flatMap((b) => b.products.map((p) => p.raw)));
+  const cutoutResults: FileResult[] = [];
+  const batches: Sorted[][] = [];
+  for (let i = 0; i < cutouts.length; i += 8) batches.push(cutouts.slice(i, i + 8));
+  const cutoutReadings = (
+    await pool(batches, 2, async (b) => {
+      const r = await readCutouts(b);
+      add(r.usage);
+      return r.readings;
+    })
+  ).flat();
+  for (const c of cutoutReadings) {
+    const label = `Cut-out ${(c.file.split("/").pop() || c.file).replace(/\.[a-z]+$/i, "")}`;
+    const fileWords = (c.file.split("/").pop() || "").replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ");
+    const results: FileResult[] = [];
+    for (const item of c.items.length ? c.items : []) {
+      const nameForMatch = item.name || fileWords;
+      let best: FlyerProduct | null = null;
+      let bestScore = 0;
+      for (const fp of allExpected) {
+        const score =
+          Math.max(similarity(nameForMatch, fp.heading), similarity(nameForMatch, fp.manusName), similarity(fileWords, fp.heading)) +
+          (fp.price && samePrice(item.price, fp.price) ? 0.35 : 0);
+        if (score > bestScore) {
+          best = fp;
+          bestScore = score;
+        }
+      }
+      if (!best || bestScore < 0.45) {
+        results.push({ file: label, kind: "cutout", expectedCount: 0, foundCount: 1, matchedCount: 0, issues: [{ severity: "warning", message: "Cut-out doesn't match any product in the manus", found: `${item.name || fileWords} ${item.price}`.trim() }] });
+        continue;
+      }
+      results.push(
+        checkFile({
+          file: label,
+          kind: "cutout",
+          expected: [best],
+          // a cut-out often has only price + info: borrow the name so the name check doesn't fire
+          reading: { headline: null, validity: null, otherText: [], items: [{ ...item, name: item.name || best.heading }], textIssues: [], unreadable: [], usage: { input_tokens: 0, output_tokens: 0 } },
+          flyerValidity: null,
+          manusHeadline: null,
+          headlineNeedsPeriod: false,
+        }),
+      );
+    }
+    const extra: Issue[] = [
+      ...c.textIssues.filter((t) => t.text !== t.suggestion).map((t) => ({ severity: "warning" as const, message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion })),
+      ...c.unreadable.map((u) => ({ severity: "warning" as const, message: "Couldn't read reliably — check by eye", found: u })),
+    ];
+    if (!results.length) results.push({ file: label, kind: "cutout", expectedCount: 0, foundCount: 0, matchedCount: 0, issues: [] });
+    results[0].issues.push(...extra);
+    cutoutResults.push(...results);
+  }
+
+  // other images in the zips: proofread only
+  const otherResults: FileResult[] = await pool(otherImages, 3, async (f) => {
+    const reading = await readAd(f.data, { poster: false, fileName: f.name });
+    add(reading.usage);
+    const issues: Issue[] = [
+      ...reading.textIssues.filter((t) => t.text !== t.suggestion).map((t) => ({ severity: "warning" as const, message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion })),
+      ...reading.unreadable.map((u) => ({ severity: "warning" as const, message: "Couldn't read reliably — check by eye", found: u })),
+    ];
+    return { file: f.name.split("/").pop() || f.name, kind: "other", detail: "spelling only (not an MVK/poster name)", expectedCount: 0, foundCount: reading.items.length, matchedCount: 0, issues };
+  });
+
+  // the same MVK/poster both loose on the card and in a zip, but not the same picture
+  for (const f of [...mvks, ...posters]) {
+    if (!f.replaced) continue;
+    if (await looksDifferent(f.data, f.replaced.data).catch(() => false))
+      orderIssues.push({
+        severity: "warning",
+        message: `${f.kind === "mvk" ? `MVK ${f.mvk}${f.format ? ` (${f.format})` : ""}` : "Poster"}: the copy in the zip and the loose file on the card are different — make sure both are the final version (the newest one was checked)`,
+        found: f.replaced.name.split("/").pop(),
+        expected: f.name.split("/").pop(),
+      });
+  }
+
+  for (const r of [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults]) r.issues = blameSource(r.issues, sourceTypos, "Coop's flyer/manus", "Pernilla");
+
+  const all = [
+    ...orderIssues,
+    ...mvkResults.flatMap((r) => r.issues),
+    ...posterResults.flatMap((r) => r.issues),
+    ...cutoutResults.flatMap((r) => r.issues),
+    ...otherResults.flatMap((r) => r.issues),
+  ];
   const incomplete = !manus || !flyer;
   const status: CheckReport["status"] = all.some((i) => i.severity === "error")
     ? "failed"
@@ -257,9 +527,12 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     sheet,
     flyer: flyerFile?.name ?? null,
     orderIssues,
-    files: [...mvkResults, ...posterResults],
+    files: [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults],
     status,
-    assigneeEmails: (task.assignees || []).map((a: any) => String(a.email || "").toLowerCase()).filter(Boolean),
+    mode: "coop",
+    notes: zipSummary(files, downloaded.map((d) => d.name).concat(files.map((f) => f.name))),
+    clientChanges: feedback.changes,
+    assigneeEmails,
     tokens,
     ms: Date.now() - t0,
   };

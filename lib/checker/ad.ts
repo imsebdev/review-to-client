@@ -120,8 +120,16 @@ async function imageBlocks(data: Uint8Array, poster: boolean): Promise<ContentBl
   return blocks;
 }
 
+const isPdf = (d: Uint8Array) => d[0] === 0x25 && d[1] === 0x50 && d[2] === 0x44 && d[3] === 0x46; // "%PDF"
+
 export async function readAd(data: Uint8Array, opts: { poster: boolean; fileName: string }): Promise<AdReading> {
-  const blocks = await imageBlocks(data, opts.poster);
+  // print files are PDFs: Claude reads the page image plus the PDF's own text layer (exact text)
+  const blocks: ContentBlock[] = isPdf(data)
+    ? [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64(data) } },
+        { type: "text", text: "Detta är tryckfilen (PDF). Läs texten exakt som den står i filen." },
+      ]
+    : await imageBlocks(data, opts.poster);
   const { data: out, usage } = await askJson<Omit<AdReading, "usage">>({
     system: SYSTEM,
     toolName: "ad_text",
@@ -140,4 +148,66 @@ export async function readAd(data: Uint8Array, opts: { poster: boolean; fileName
     ],
   });
   return { ...out, usage };
+}
+
+
+// ---------- cut-outs ("Frilagda priser & info") ----------
+
+export type CutoutReading = {
+  file: string;
+  items: AdItem[];
+  textIssues: AdReading["textIssues"];
+  unreadable: string[];
+};
+
+const CUTOUT_SCHEMA = {
+  type: "object",
+  properties: {
+    cutouts: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          index: { type: "integer" },
+          items: SCHEMA.properties.items,
+          textIssues: SCHEMA.properties.textIssues,
+          unreadable: SCHEMA.properties.unreadable,
+        },
+        required: ["index", "items", "textIssues", "unreadable"],
+      },
+    },
+  },
+  required: ["cutouts"],
+};
+
+/**
+ * The team's cut-outs of price + info per product (they get placed on the ads and posters).
+ * Several small images per request; each answer is matched back by its index.
+ */
+export async function readCutouts(files: Array<{ name: string; data: Uint8Array }>): Promise<{ readings: CutoutReading[]; usage: Usage }> {
+  const content: ContentBlock[] = [];
+  for (let i = 0; i < files.length; i++) {
+    content.push({ type: "text", text: `Bild ${i + 1} — fil: ${files[i].name.split("/").pop()}` });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: await jpeg(sharp(Buffer.from(files[i].data)).flatten({ background: "#ffffff" }), 1200) } });
+  }
+  content.push({
+    type: "text",
+    text:
+      `Detta är ${files.length} utklipp ("frilagda priser & info"): varje bild är pris + infotext för en produkt (ibland även produktnamn), ` +
+      `som sedan placeras på annonserna. Svara med en post per bild i "cutouts" (index = bildens nummer). ` +
+      `"name" = produktnamnet om det står i bilden, annars tom sträng. Samma regler som för annonser i övrigt.`,
+  });
+  const { data, usage } = await askJson<{ cutouts: Array<Omit<CutoutReading, "file"> & { index: number }> }>({
+    system: SYSTEM,
+    content,
+    toolName: "cutout_text",
+    toolDescription: "Price and info text in each cut-out image, plus real text errors.",
+    schema: CUTOUT_SCHEMA,
+    maxTokens: 6000,
+  });
+  const readings = files.map((f, i) => {
+    const r = (data.cutouts || []).find((c) => c.index === i + 1);
+    return { file: f.name, items: r?.items ?? [], textIssues: r?.textIssues ?? [], unreadable: r?.unreadable ?? [] };
+  });
+  return { readings, usage };
 }
