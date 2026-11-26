@@ -9,7 +9,8 @@
 //   Stora-Coop_V48_POSTER_70x100_PRINT.pdf
 // To add a group: add one entry to GROUPS (order = order on the page).
 
-/** Group words, in page order. `match` runs on the file name (case-insensitive). */
+/** Group words, in page order. `match` runs on the file name (case-insensitive).
+ *  `folder`: folder name inside zips when the title has characters a folder can't (e.g. "/"). */
 export const GROUPS = [
   { id: "MVK",      title: "MVK-annonser",    match: [word("mvk")] },
   { id: "CAROUSEL", title: "Karusell",        match: [word("carousel"), word("karusell")] },
@@ -17,7 +18,7 @@ export const GROUPS = [
   { id: "REEL",     title: "Reels",           match: [word("reel"), word("reels")] },
   { id: "BANNER",   title: "HTML5-banners",   match: [word("banner")] },
   { id: "BACKUP",   title: "Backup-bilder",   match: [word("backup")] },
-  { id: "POSTER",   title: "Skylt / affisch", match: [word("poster"), /skyl+t/i, /70\s*x\s*100/i] },
+  { id: "POSTER",   title: "Skylt / affisch", folder: "Skylt-affisch", match: [word("poster"), /skyl+t/i, /70\s*x\s*100/i] },
   { id: "PRINT",    title: "Tryckfiler",      match: [word("print"), /tryckfil/i] },
   { id: "FLYER",    title: "Flyer",           match: [word("flyer")] },
   { id: "TABLE",    title: "Bordsryttare",    match: [word("table")] },
@@ -47,6 +48,11 @@ const TALLY_FLYER = /^[a-z]{2}_\d{4}_.*\.pdf$/i;
 /** Whole-word match that also works next to digits, _ - . and spaces ("mvk6", "_MVK_"). */
 function word(w) {
   return new RegExp("(^|[^a-zåäö])" + w + "(?![a-zåäö])", "i");
+}
+
+/** Folder name for a group inside a zip: never contains "/" or "\\". */
+export function folderName(g) {
+  return (g.folder || g.title).replace(/[\\/]+/g, "-").replace(/\s+/g, " ").trim();
 }
 
 export function fileNameFromUrl(url) {
@@ -90,7 +96,7 @@ function trailingNumber(name) {
 /**
  * Sort a card's file URLs into groups.
  * @param {string[]} urls  the comma-split `preview` field from Redis
- * @returns {{ groups: {id,title,files}[], files: object[], hidden: {name,url,reason}[], ungrouped: string[] }}
+ * @returns {{ groups: {id,title,folder,files}[], files: object[], hidden: {name,url,reason}[], ungrouped: string[] }}
  *   files: every visible file in page order, each { url, name, ext, kind, group }
  */
 export function sortFiles(urls) {
@@ -112,7 +118,7 @@ export function sortFiles(urls) {
     const files = visible
       .filter((f) => f.group === g.id)
       .sort((a, b) => trailingNumber(a.name) - trailingNumber(b.name) || a.name.localeCompare(b.name, "sv"));
-    if (files.length) groups.push({ id: g.id, title: g.title, files });
+    if (files.length) groups.push({ id: g.id, title: g.title, folder: folderName(g), files });
   }
 
   return {

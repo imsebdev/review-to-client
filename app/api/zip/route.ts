@@ -44,7 +44,9 @@ function zipFileName(raw: string | null): string {
     .replace(/\.zip$/i, "")
     .replace(/[^\p{L}\p{N} _.-]+/gu, " ")
     .trim()
+    .replace(/\s*-\s*/g, "-")
     .replace(/\s+/g, "-")
+    .replace(/-{2,}/g, "-")
     .slice(0, 120) || "SpiderAds";
   return base + ".zip";
 }
@@ -78,26 +80,42 @@ export async function GET(req: NextRequest) {
   for (const g of sorted.groups) {
     for (const f of g.files) {
       const id = String(f.url).split("/")[1];
-      files.push({ id, path: (folders && sorted.groups.length > 1 ? g.title + "/" : "") + f.name });
+      files.push({ id, path: (folders && sorted.groups.length > 1 ? g.folder + "/" : "") + f.name });
     }
   }
   if (!files.length) return new NextResponse("No downloadable files", { status: 404 });
+
+  // Each signed URL works once and expires: refresh the whole set when it gets old,
+  // and after a URL has been used. One refresh at a time.
+  let refreshing: Promise<void> | null = null;
+  async function signedUrl(id: string): Promise<string> {
+    if (!atts.has(id) || Date.now() - fetchedAt > URL_MAX_AGE_MS) {
+      refreshing ??= attachmentsOf(taskId).then((m) => { atts = m; fetchedAt = Date.now(); }).finally(() => { refreshing = null; });
+      await refreshing;
+    }
+    const att = atts.get(id);
+    if (!att) throw new Error("attachment gone");
+    atts.delete(id);
+    return att.url;
+  }
+
+  // Fetch the next files while the current one streams (ClickUp answers in ~0.5 s each).
+  const LOOKAHEAD = 2;
+  const started = new Map<number, Promise<Response>>();
+  function start(k: number) {
+    if (k >= files.length || started.has(k)) return;
+    const p = signedUrl(files[k].id).then((u) => fetch(u, { cache: "no-store" }));
+    p.catch(() => {}); // handled when its turn comes; avoid an unhandled-rejection crash
+    started.set(k, p);
+  }
 
   const paths = uniquePaths(files.map((f) => f.path));
   const entries: ZipEntry[] = files.map((f, k) => ({
     name: paths[k],
     open: async () => {
-      // Each signed URL works once and expires: refresh the whole set when it gets old,
-      // and after a URL has been used.
-      let att = atts.get(f.id);
-      if (!att || Date.now() - fetchedAt > URL_MAX_AGE_MS) {
-        atts = await attachmentsOf(taskId);
-        fetchedAt = Date.now();
-        att = atts.get(f.id);
-      }
-      if (!att) throw new Error("attachment gone");
-      atts.delete(f.id);
-      const res = await fetch(att.url, { cache: "no-store" });
+      for (let j = k; j <= k + LOOKAHEAD; j++) start(j);
+      const res = await started.get(k)!;
+      started.delete(k);
       if (!res.ok || !res.body) throw new Error(`ClickUp file ${res.status}`);
       return res.body as ReadableStream<Uint8Array>;
     },
