@@ -283,7 +283,7 @@
         <div id="designsGrid"></div>
         <div class="selbar" id="selbar" hidden>
           <span id="selText"></span>
-          <a class="btn" id="selZip" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>Ladda ner valda som zip</a>
+          <a class="btn" id="selZip" href="#" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>Ladda ner valda som zip</a>
         </div>
       </section>
 
@@ -356,8 +356,9 @@
 
   <script>
     // ── SWITCHES ───────────────────────────────────────
-    // Zip buttons stay hidden until /api/zip exists (build step 2).
-    const ZIP_ENABLED = false;
+    // Zip buttons use /api/zip (streams the files fresh from ClickUp at click time).
+    // Set to false to fall back to single-file downloads only.
+    const ZIP_ENABLED = true;
 
     // ── STATE ──────────────────────────────────────────
     // Names kept from the live page: taskData.designs[id].filename, selectedDesigns (Set of ids),
@@ -393,8 +394,18 @@
 
     function isLabel(f) { return f.group === 'LABEL'; }
 
-    function zipUrl(params) {
-      return '/api/zip?' + new URLSearchParams(Object.assign({ taskId: taskData.taskId }, params)).toString();
+    // Attachment id from our own file link: /api/file/<taskId>/<attId>/<name>
+    function attIdOf(f) {
+      const m = String(f.url).match(/\/api\/file\/[^/]+\/([^/]+)\//);
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+
+    // Zip link for a set of files, or null when they can't be zipped (e.g. demo images).
+    function zipUrl(files, label, folders) {
+      const ids = files.map(attIdOf);
+      if (!ids.length || ids.some(id => !id)) return null;
+      const base = (taskData.client || 'SpiderAds').replace(/https?:\/\//, '').replace(/\/$/, '');
+      return '/api/zip?' + new URLSearchParams({ taskId: taskData.taskId, ids: ids.join(','), folders: folders ? '1' : '0', name: base + '_' + label }).toString();
     }
 
     // ── INIT ───────────────────────────────────────────
@@ -610,16 +621,16 @@
       if (files.length === 1) {
         // Single file: one picture, one download button, no zip
         html = `<div class="dl-list">${fileRow(files[0])}</div>`;
-      } else if (files.length > 1 && ZIP_ENABLED) {
+      } else if (files.length > 1 && ZIP_ENABLED && zipUrl(files, 'Alla-filer', true)) {
         const rows = sorted.groups.map(g => {
           const first = g.files.find(f => f.kind === 'image');
           const icon = first ? `<img src="${esc(first.url)}" alt="" loading="lazy">` : esc((g.files[0].ext || 'fil').toUpperCase());
           const btn = g.files.length === 1
             ? `<a class="btn" href="${esc(g.files[0].url)}" target="_blank" rel="noopener" download>${DL_ICON}Ladda ner</a>`
-            : `<a class="btn" href="${esc(zipUrl({ group: g.id }))}">${DL_ICON}Zip</a>`;
+            : `<a class="btn" href="${esc(zipUrl(g.files, g.title, false))}" download>${DL_ICON}Zip</a>`;
           return `<div class="grp"><div class="ic${g.id === 'LABEL' ? ' lbl' : ''}">${icon}</div><div class="n"><b>${esc(g.title)}</b><span>${g.files.length} ${g.files.length > 1 ? 'filer' : 'fil'}</span></div>${btn}</div>`;
         }).join('');
-        html = `<div class="dl"><div class="dl-all"><div><div class="t">Alla filer</div><div class="s">${files.length} filer${multiGroup() ? ' · sorterade i mappar per grupp' : ''}</div></div><a class="btn big" href="${esc(zipUrl({ group: 'all' }))}">${DL_ICON}Ladda ner alla som zip</a></div>${multiGroup() ? `<div class="dl-groups">${rows}</div>` : ''}</div>`;
+        html = `<div class="dl"><div class="dl-all"><div><div class="t">Alla filer</div><div class="s">${files.length} filer${multiGroup() ? ' · sorterade i mappar per grupp' : ''}</div></div><a class="btn big" href="${esc(zipUrl(files, 'Alla-filer', true))}" download>${DL_ICON}Ladda ner alla som zip</a></div>${multiGroup() ? `<div class="dl-groups">${rows}</div>` : ''}</div>`;
       } else if (files.length > 1) {
         // Until /api/zip exists: list the files the slideshow can't show (PDF, banner zips, video).
         // Images are downloaded one by one with "Ladda ner den här filen" under the slideshow.
@@ -663,10 +674,12 @@
       document.getElementById('selectedCount').textContent = selectedDesigns.size;
       document.getElementById('selectionCounter').classList.toggle('has-selection', selectedDesigns.size > 0);
       const bar = document.getElementById('selbar');
-      bar.hidden = !ZIP_ENABLED || selectedDesigns.size === 0;
+      const selFiles = Array.from(selectedDesigns).sort((a, b) => a - b).map(i => taskData.designs[i].file);
+      const selUrl = ZIP_ENABLED ? zipUrl(selFiles, 'Valda-' + selFiles.length, true) : null;
+      bar.hidden = !selUrl || selectedDesigns.size === 0;
       if (!bar.hidden) {
         document.getElementById('selText').textContent = `${selectedDesigns.size} ${selectedDesigns.size > 1 ? 'designer valda' : 'design vald'}`;
-        document.getElementById('selZip').href = zipUrl({ group: 'sel', names: Array.from(selectedDesigns).map(i => taskData.designs[i].filename).join('|') });
+        document.getElementById('selZip').href = selUrl;
       }
     }
 
