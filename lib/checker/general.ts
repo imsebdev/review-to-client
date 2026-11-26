@@ -14,7 +14,7 @@ import { askJson, b64, type ContentBlock, type Usage } from "./anthropic";
 import { similarity, type FileResult, type Issue } from "./compare";
 import { allComments, pickClientComments } from "./feedback";
 import { readSite, siteLinks, type SitePage } from "./website";
-import { blameSource, type SourceTypo } from "./source-proofread";
+import { correctSourceTypos, fixTypos, sourceTypoWarning, typoIssues, type SourceTypo } from "./source-proofread";
 import type { CheckReport } from "./run";
 
 // ---------- attachments ----------
@@ -193,7 +193,7 @@ The file is either ONE ad (kind "single_ad"), or a presentation sheet / mockup t
    - mixed languages where it isn't intended (warning)
    - for 9:16 stories/reels: important text in the top ~14% or bottom ~20% (covered by the app UI) (warning)
    Do NOT comment on design taste, colours, layout choices or image selection unless the brief/client asked for something specific.
-   If the ad repeats a typo listed in the checklist's sourceTypos (the client's own material), still report it, as a warning.
+   If the ad repeats a typo listed in the checklist's sourceTypos (the client's own material), report it as an error: we correct the client's typos in the ads.
    Do not repeat the same problem twice. If everything is fine: empty list.
 3. unreadable: text you can't read reliably. Never guess numbers.
 Write messages in English, quote the ad's text in its original language.`;
@@ -426,13 +426,10 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
   ];
 
   brief.sourceTypos = (brief.sourceTypos || []).filter((t) => t.text && t.suggestion && t.text.trim() !== t.suggestion.trim());
-  for (const t of brief.sourceTypos)
-    orderIssues.push({
-      severity: "warning",
-      message: `Typo in the client's own material (${t.where}): ${t.issue} — ask the client before correcting it in the ad`,
-      found: t.text,
-      expected: t.suggestion,
-    });
+  const contact = fields.find((f) => /^name$/i.test(f.name))?.value?.split(/\s+/)[0] ?? null;
+  for (const t of brief.sourceTypos) orderIssues.push(sourceTypoWarning(t, "The client's material", contact));
+  // copy fields are used word for word — but with the client's typos corrected
+  brief.exactCopy = brief.exactCopy.map((c) => ({ ...c, text: fixTypos(c.text, brief.sourceTypos) }));
 
   // --- read every file
   const files: FileResult[] = [];
@@ -534,9 +531,18 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
     for (const i of set.issues || []) orderIssues.push({ severity: i.severity, message: i.message, found: i.found ?? undefined, expected: i.expected ?? undefined });
   }
 
-  for (const f of files) f.issues = blameSource(f.issues, brief.sourceTypos, "the client's material", "the client");
-  const softened = blameSource(orderIssues.filter((i) => !/^Typo in the client's own material/.test(i.message)), brief.sourceTypos, "the client's material", "the client");
-  orderIssues.splice(0, orderIssues.length, ...orderIssues.filter((i) => /^Typo in the client's own material/.test(i.message)), ...softened);
+  for (const f of files) f.issues = correctSourceTypos(f.issues, brief.sourceTypos, "the client's material");
+  if (brief.sourceTypos.length) {
+    // an ad that copied the client's typo word for word: scan each file's text lines
+    for (const f of files) {
+      const block = perFileTexts.find((p) => p.startsWith(`### ${f.file} `)) ?? "";
+      const lines = block.split("\n").flatMap((l) => l.split(" | "));
+      for (const t of typoIssues(lines, brief.sourceTypos, "the client's material"))
+        if (!f.issues.some((i) => i.message === t.message)) f.issues.push(t);
+    }
+  }
+
+  orderIssues.splice(0, orderIssues.length, ...correctSourceTypos(orderIssues, brief.sourceTypos, "the client's material"));
 
   const all = [...orderIssues, ...files.flatMap((f) => f.issues)];
   const status: CheckReport["status"] = all.some((i) => i.severity === "error") ? "failed" : all.length || videos.length ? "warnings" : "passed";

@@ -74,30 +74,79 @@ export function typoIn(text: string | undefined | null, typos: SourceTypo[]): So
   return typos.find((x) => t.includes(flat(x.text))) ?? null;
 }
 
-/**
- * Issues caused by a typo in the client's own material:
- *  - the ad copied the typo → warning, "comes from the client's file, ask before correcting"
- *  - the ad fixed the typo, so it "differs from the flyer" → warning, "ad corrected it"
- */
-export function blameSource(issues: Issue[], typos: SourceTypo[], source: string, who: string): Issue[] {
-  if (!typos.length) return issues;
-  return issues.map((i) => {
-    const inFound = typoIn(i.found, typos);
-    const inExpected = typoIn(i.expected, typos);
-    if (inExpected && !inFound)
-      return {
-        ...i,
-        severity: "warning",
-        message: `${i.message} — ${source} has a typo here (“${inExpected.text}” → “${inExpected.suggestion}”) and the ad corrected it. Fine, but let ${who} know`,
-      };
-    if (inFound && (/^Text:/.test(i.message) || inExpected))
-      return {
-        ...i,
-        severity: "warning",
-        message: `Same typo as ${source} (“${inFound.text}” → “${inFound.suggestion}”) — ask ${who} whether to correct it in the ad`,
-        expected: i.expected ?? inFound.suggestion,
-      };
-    return i;
-  });
+/** The expected text with the source's typos fixed — what the ad should say. */
+export function fixTypos(text: string, typos: SourceTypo[]): string {
+  let out = text;
+  for (const t of typos) {
+    const re = new RegExp(t.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    out = out.replace(re, t.suggestion);
+  }
+  return out;
 }
 
+const squash = (s: string) => s.toLowerCase().replace(/[’‘`´]/g, "'").replace(/[\s.]+$/, "").replace(/\s+/g, "");
+
+/**
+ * We correct the client's typos ourselves instead of waiting for them (no bottleneck):
+ *  - the ad copied a typo from the client's file → error: correct it in the ad
+ *  - the ad already has the correct spelling, and that's the only difference → not an issue
+ *  - the ad differs for other reasons too → issue stays, compared against the corrected text
+ */
+export function correctSourceTypos(issues: Issue[], typos: SourceTypo[], source: string): Issue[] {
+  if (!typos.length) return issues;
+  const out: Issue[] = [];
+  for (const i of issues) {
+    const inFound = typoIn(i.found, typos);
+    const inExpected = typoIn(i.expected, typos);
+    if (inExpected && !inFound && i.found) {
+      const fixed = fixTypos(i.expected!, typos);
+      if (squash(fixed) === squash(i.found)) continue; // designer already corrected it
+      out.push({ ...i, expected: fixed });
+      continue;
+    }
+    if (inFound) {
+      out.push({
+        ...i,
+        severity: "error",
+        message: `Typo copied from ${source} — correct it in the ad: “${inFound.text}” → “${inFound.suggestion}”`,
+        expected: i.expected && inExpected ? fixTypos(i.expected, typos) : i.expected ?? inFound.suggestion,
+      });
+      continue;
+    }
+    out.push(i);
+  }
+  return out;
+}
+
+/** Errors for every client typo that appears on an ad (when the ad matches the flyer, nothing else would catch it). */
+export function typoIssues(texts: string[], typos: SourceTypo[], source: string): Issue[] {
+  const out: Issue[] = [];
+  for (const t of typos) {
+    const hit = texts.find((x) => x && typoIn(x, [t]));
+    if (hit)
+      out.push({
+        severity: "error",
+        message: `Typo copied from ${source} — correct it in the ad: “${t.text}” → “${t.suggestion}”`,
+        found: hit,
+        expected: fixTypos(hit, [t]),
+      });
+  }
+  return out;
+}
+
+/** The order-level warning: we found it, we correct it, here's what to tell the client. */
+export function sourceTypoWarning(t: SourceTypo, owner: string, clientName: string | null): Issue {
+  const to = clientName ? `Hej ${clientName}! ` : "Hej! ";
+  const var_ = t.where
+    .replace(/^flyer p\.\s*([\d?]+)\s*\((.+)\)$/i, "reklambladet s. $1, $2")
+    .replace(/^manus Bild (\d+) headline$/i, "manus, rubrik Bild $1")
+    .replace(/^client comment$/i, "din kommentar");
+  return {
+    severity: "warning",
+    message:
+      `${owner} has a typo (${t.where}): ${t.issue}. Correct it in the ads and let the client know — ` +
+      `e.g. “${to}Vi hittade ett stavfel i underlaget (${var_}): ”${t.text}” – vi har rättat det till ”${t.suggestion}” i annonserna.”`,
+    found: t.text,
+    expected: t.suggestion,
+  };
+}
