@@ -48,7 +48,7 @@ Live (L202–222, L482–520):
 ## E. Downloads
 Live (L224–228, L449–459): one card per zip/pdf with "⬇ Ladda ned", `download target=_blank`.
 - [ ] (change) "Ladda ner" block directly under the slideshow: "Ladda ner alla som zip" + one zip button per group; a single-file job gets just one "Ladda ner" button. Single-file downloads keep using `/api/file/…` links like today.
-- **Decided:** zip buttons hidden until `/api/zip` exists (`ZIP_ENABLED = false` in the page). Until then the section lists the files the slideshow can't show (PDF, banner zips, video); images download one by one from the caption button.
+- **Built (27 Nov):** `/api/zip` (new route) streams a store-only zip fetched fresh from ClickUp at click time; `ZIP_ENABLED = true`. "Ladda ner alla som zip" (one folder per group), one Zip per group (single-file groups get a plain download), "Ladda ner valda som zip". The route refuses manus/xlsx, the Tally flyer and old zips, and ids that aren't on the given card. Tested on the [TEST] cards: 12 files / 4 folders in ~2 s, sizes byte-identical to the card.
 
 ## F. PDF / print
 Live (L216–221, L523–579):
