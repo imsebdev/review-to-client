@@ -60,9 +60,12 @@ function fileBlock(f: FileResult): string {
 
 export function slackText(r: CheckReport, opts: { live: boolean }): string {
   const ids = slackIds();
+  // only the person who moved the card gets tagged; without that info, the card's assignees
+  const who = r.movedBy && ids[r.movedBy] ? [r.movedBy] : r.assigneeEmails;
+  // the person who moved the card is told the result either way; the fallback only when something's wrong
   const mentions =
-    opts.live && r.status !== "passed"
-      ? r.assigneeEmails
+    opts.live && (r.status !== "passed" || (r.movedBy && ids[r.movedBy]))
+      ? who
           .map((e) => ids[e])
           .filter(Boolean)
           .map((id) => `<@${id}>`)

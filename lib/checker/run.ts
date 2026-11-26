@@ -32,6 +32,7 @@ export type CheckReport = {
   sources?: string[]; // what the general check used as its brief
   briefChanges?: Array<{ quote: string; date: string }>; // client feedback the general check applied
   notes?: string[]; // informational lines, e.g. what was inside each zip
+  movedBy?: string; // email of whoever moved the card into internal review (only they get tagged)
   assigneeEmails: string[];
   tokens: { input: number; output: number };
   ms: number;
