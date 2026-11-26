@@ -53,6 +53,7 @@ function fileBlock(f: FileResult): string {
         ? `*${f.file}* — ${f.matchedCount}/${f.expectedCount} products`
         : `*${f.file}*${f.detail ? ` — ${f.detail}` : ""}`;
   if (f.kind === "video") return `🎬 ${head}`;
+  if (f.kind === "cutout") return `${errors ? "❌" : "⚠️"} *${f.file}*\n${f.issues.map((i) => "   " + issueLine(i)).join("\n")}`;
   if (!f.issues.length) return `✅ ${head}`;
   return `${errors ? "❌" : "⚠️"} ${head}\n${f.issues.map((i) => "   " + issueLine(i)).join("\n")}`;
 }
@@ -86,7 +87,14 @@ export function slackText(r: CheckReport, opts: { live: boolean }): string {
   const bad = r.files.filter((f) => f.issues.length || f.kind === "video");
   const good = r.files.filter((f) => !f.issues.length && f.kind !== "video");
   if (bad.length) lines.push("", ...bad.map(fileBlock));
-  if (good.length) lines.push("", `✅ OK: ${good.map((f) => (f.kind === "poster" ? "poster " + f.file : f.file)).join(", ")}`);
+  const okCutouts = good.filter((f) => f.kind === "cutout");
+  const okOther = good.filter((f) => f.kind !== "cutout");
+  const okList = [
+    ...okOther.map((f) => (f.kind === "poster" ? "poster " + f.file : f.file)),
+    ...(okCutouts.length ? [`${new Set(okCutouts.map((f) => f.file)).size} cut-outs`] : []),
+  ];
+  if (okList.length) lines.push("", `✅ OK: ${okList.join(", ")}`);
+  if (r.notes?.length) lines.push("", ...r.notes.map((n) => `_${n}_`));
   lines.push("", `_${Math.round(r.ms / 1000)} s · ${r.tokens.input + r.tokens.output} tokens_`);
   return lines.join("\n");
 }

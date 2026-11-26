@@ -6,9 +6,10 @@
 import { createHash } from "crypto";
 import { Redis } from "@upstash/redis";
 import { fetchTask } from "../clickup-task";
-import { readAd, type AdReading } from "./ad";
-import { checkFile, productsFromPosterName, similarity, type FileResult, type Issue } from "./compare";
-import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, type InFile, type Sorted } from "./files";
+import sharp from "sharp";
+import { readAd, readCutouts, type AdReading } from "./ad";
+import { checkFile, productsFromPosterName, samePrice, similarity, type FileResult, type Issue } from "./compare";
+import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, zipSummary, type InFile, type Sorted } from "./files";
 import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
 import { runGeneralCheck } from "./general";
@@ -30,6 +31,7 @@ export type CheckReport = {
   mode?: "coop" | "general"; // general = any non-Coop card, checked against card + comments + website
   sources?: string[]; // what the general check used as its brief
   briefChanges?: Array<{ quote: string; date: string }>; // client feedback the general check applied
+  notes?: string[]; // informational lines, e.g. what was inside each zip
   assigneeEmails: string[];
   tokens: { input: number; output: number };
   ms: number;
@@ -189,6 +191,16 @@ function softenTouched(r: FileResult, touched: Effective["touched"]): FileResult
   return r;
 }
 
+/** Two exports of the same ad that don't look alike (a text fix, a swapped product…). Small JPEG noise is ignored. */
+async function looksDifferent(a: Uint8Array, b: Uint8Array): Promise<boolean> {
+  if (a.length === b.length && Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0) return false;
+  const px = (d: Uint8Array) => sharp(Buffer.from(d)).flatten({ background: "#ffffff" }).resize(256, 256, { fit: "fill" }).greyscale().raw().toBuffer();
+  const [x, y] = await Promise.all([px(a), px(b)]);
+  let changed = 0;
+  for (let i = 0; i < x.length; i++) if (Math.abs(x[i] - y[i]) > 48) changed++;
+  return changed >= 8;
+}
+
 export async function runCheck(taskId: string): Promise<CheckReport> {
   const t0 = Date.now();
   const task = await fetchTask(taskId);
@@ -207,11 +219,19 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
   // Coop weekly orders have a manus or a chain + week in the title; everything else gets the general check
   if (!looksLikeManus && !(chain && week)) return runGeneralCheck(task, taskId, assigneeEmails, t0);
 
-  const files = await sortFiles(await downloadAttachments(task));
+  const downloaded = await downloadAttachments(task);
+  const files = await sortFiles(downloaded);
   const manusFile = files.filter((f) => f.kind === "manus").sort((a, b) => b.date - a.date)[0];
   const flyerFile = week ? pickFlyer(files, week) : null;
   const mvks = files.filter((f) => f.kind === "mvk").sort((a, b) => a.mvk! - b.mvk!);
-  const posters = files.filter((f) => f.kind === "poster");
+  const isPdfName = (n: string) => /\.pdf$/i.test(n);
+  const tooBig = files.filter((f) => f.kind === "poster" && isPdfName(f.name) && f.data.length > 24 * 1024 * 1024);
+  for (const f of tooBig)
+    orderIssues.push({ severity: "warning", message: "Poster print file (PDF) is too large to read — check it by eye against the poster JPG", found: f.name.split("/").pop() });
+  const posters = files.filter((f) => f.kind === "poster" && !tooBig.includes(f));
+  const cutouts = files.filter((f) => f.kind === "cutout");
+  // other images inside zips (extra sizes, story versions without MVK in the name…): spelling only
+  const otherImages = files.filter((f) => f.kind === "other" && f.zip && /\.(jpe?g|png|webp)$/i.test(f.name)).slice(0, 12);
 
   let manus: Manus | null = null;
   let sheet: string | null = null;
@@ -337,7 +357,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     );
     return softenTouched(
       checkFile({
-        file: `MVK ${f.mvk}`,
+        file: `MVK ${f.mvk}${f.format ? ` (${f.format})` : ""}`,
         kind: "mvk",
         expected: eff.expected,
         reading,
@@ -401,9 +421,93 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     return result;
   });
 
-  for (const r of [...mvkResults, ...posterResults]) r.issues = blameSource(r.issues, sourceTypos, "Coop's flyer/manus", "Pernilla");
+  // cut-outs ("Frilagda priser & info"): each one is checked against the product it belongs to
+  const allExpected = expectedOf((manus?.bilder ?? []).flatMap((b) => b.products.map((p) => p.raw)));
+  const cutoutResults: FileResult[] = [];
+  const batches: Sorted[][] = [];
+  for (let i = 0; i < cutouts.length; i += 8) batches.push(cutouts.slice(i, i + 8));
+  const cutoutReadings = (
+    await pool(batches, 2, async (b) => {
+      const r = await readCutouts(b);
+      add(r.usage);
+      return r.readings;
+    })
+  ).flat();
+  for (const c of cutoutReadings) {
+    const label = `Cut-out ${(c.file.split("/").pop() || c.file).replace(/\.[a-z]+$/i, "")}`;
+    const fileWords = (c.file.split("/").pop() || "").replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ");
+    const results: FileResult[] = [];
+    for (const item of c.items.length ? c.items : []) {
+      const nameForMatch = item.name || fileWords;
+      let best: FlyerProduct | null = null;
+      let bestScore = 0;
+      for (const fp of allExpected) {
+        const score =
+          Math.max(similarity(nameForMatch, fp.heading), similarity(nameForMatch, fp.manusName), similarity(fileWords, fp.heading)) +
+          (fp.price && samePrice(item.price, fp.price) ? 0.35 : 0);
+        if (score > bestScore) {
+          best = fp;
+          bestScore = score;
+        }
+      }
+      if (!best || bestScore < 0.45) {
+        results.push({ file: label, kind: "cutout", expectedCount: 0, foundCount: 1, matchedCount: 0, issues: [{ severity: "warning", message: "Cut-out doesn't match any product in the manus", found: `${item.name || fileWords} ${item.price}`.trim() }] });
+        continue;
+      }
+      results.push(
+        checkFile({
+          file: label,
+          kind: "cutout",
+          expected: [best],
+          // a cut-out often has only price + info: borrow the name so the name check doesn't fire
+          reading: { headline: null, validity: null, otherText: [], items: [{ ...item, name: item.name || best.heading }], textIssues: [], unreadable: [], usage: { input_tokens: 0, output_tokens: 0 } },
+          flyerValidity: null,
+          manusHeadline: null,
+          headlineNeedsPeriod: false,
+        }),
+      );
+    }
+    const extra: Issue[] = [
+      ...c.textIssues.filter((t) => t.text !== t.suggestion).map((t) => ({ severity: "warning" as const, message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion })),
+      ...c.unreadable.map((u) => ({ severity: "warning" as const, message: "Couldn't read reliably — check by eye", found: u })),
+    ];
+    if (!results.length) results.push({ file: label, kind: "cutout", expectedCount: 0, foundCount: 0, matchedCount: 0, issues: [] });
+    results[0].issues.push(...extra);
+    cutoutResults.push(...results);
+  }
 
-  const all = [...orderIssues, ...mvkResults.flatMap((r) => r.issues), ...posterResults.flatMap((r) => r.issues)];
+  // other images in the zips: proofread only
+  const otherResults: FileResult[] = await pool(otherImages, 3, async (f) => {
+    const reading = await readAd(f.data, { poster: false, fileName: f.name });
+    add(reading.usage);
+    const issues: Issue[] = [
+      ...reading.textIssues.filter((t) => t.text !== t.suggestion).map((t) => ({ severity: "warning" as const, message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion })),
+      ...reading.unreadable.map((u) => ({ severity: "warning" as const, message: "Couldn't read reliably — check by eye", found: u })),
+    ];
+    return { file: f.name.split("/").pop() || f.name, kind: "other", detail: "spelling only (not an MVK/poster name)", expectedCount: 0, foundCount: reading.items.length, matchedCount: 0, issues };
+  });
+
+  // the same MVK/poster both loose on the card and in a zip, but not the same picture
+  for (const f of [...mvks, ...posters]) {
+    if (!f.replaced) continue;
+    if (await looksDifferent(f.data, f.replaced.data).catch(() => false))
+      orderIssues.push({
+        severity: "warning",
+        message: `${f.kind === "mvk" ? `MVK ${f.mvk}${f.format ? ` (${f.format})` : ""}` : "Poster"}: the copy in the zip and the loose file on the card are different — make sure both are the final version (the newest one was checked)`,
+        found: f.replaced.name.split("/").pop(),
+        expected: f.name.split("/").pop(),
+      });
+  }
+
+  for (const r of [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults]) r.issues = blameSource(r.issues, sourceTypos, "Coop's flyer/manus", "Pernilla");
+
+  const all = [
+    ...orderIssues,
+    ...mvkResults.flatMap((r) => r.issues),
+    ...posterResults.flatMap((r) => r.issues),
+    ...cutoutResults.flatMap((r) => r.issues),
+    ...otherResults.flatMap((r) => r.issues),
+  ];
   const incomplete = !manus || !flyer;
   const status: CheckReport["status"] = all.some((i) => i.severity === "error")
     ? "failed"
@@ -422,9 +526,10 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     sheet,
     flyer: flyerFile?.name ?? null,
     orderIssues,
-    files: [...mvkResults, ...posterResults],
+    files: [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults],
     status,
     mode: "coop",
+    notes: zipSummary(files, downloaded.map((d) => d.name).concat(files.map((f) => f.name))),
     clientChanges: feedback.changes,
     assigneeEmails,
     tokens,

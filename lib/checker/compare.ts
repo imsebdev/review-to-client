@@ -20,7 +20,7 @@ export type Issue = {
 
 export type FileResult = {
   file: string; // display name, e.g. "MVK 6" or the poster file name
-  kind: "mvk" | "poster" | "creative" | "html5" | "video";
+  kind: "mvk" | "poster" | "cutout" | "other" | "creative" | "html5" | "video";
   detail?: string; // e.g. "1080x1080" for general checks
   expectedCount: number;
   foundCount: number;
@@ -61,7 +61,7 @@ export function similarity(a: string, b: string): number {
   return (2 * inter) / (A.size + B.size);
 }
 
-function samePrice(a: string, b: string): boolean {
+export function samePrice(a: string, b: string): boolean {
   const pa = parseOffers(a);
   const pb = parseOffers(b);
   if (!pa.length || !pb.length || pa.length !== pb.length) return false;
@@ -302,7 +302,7 @@ export function findText(r: AdReading, want: string): string | null {
 
 export function checkFile(opts: {
   file: string;
-  kind: "mvk" | "poster";
+  kind: "mvk" | "poster" | "cutout";
   expected: FlyerProduct[];
   reading: AdReading;
   flyerValidity: string | null;
