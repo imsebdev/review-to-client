@@ -13,7 +13,7 @@ import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, zipSummary, type I
 import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
 import { runGeneralCheck } from "./general";
-import { blameSource, proofreadSources, type SourceTypo } from "./source-proofread";
+import { correctSourceTypos, proofreadSources, sourceTypoWarning, typoIssues, type SourceTypo } from "./source-proofread";
 import { appliesTo, readClientFeedback, type ClientChange, type ClientFeedback } from "./feedback";
 
 export type CheckReport = {
@@ -320,6 +320,8 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
   // Coop's own texts (flyer + manus headlines) can have typos — find them once, so an ad that
   // copied one isn't blamed for it and one that fixed it isn't flagged as "differs from the flyer"
   let sourceTypos: SourceTypo[] = [];
+  const adTexts = new Map<string, string[]>(); // file label → all text read on it (for the typo scan)
+  const textsOf = (r: AdReading) => [r.headline ?? "", ...r.otherText, ...r.items.flatMap((i) => [i.name, i.price, i.info, i.limit ?? "", ...i.splashes])];
   if (manus || flyer) {
     const items = [
       ...(flyer?.products ?? [])
@@ -335,13 +337,8 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
       const r = await proofreadSources(items);
       if (r.usage) add(r.usage);
       sourceTypos = r.typos;
-      for (const t of sourceTypos)
-        orderIssues.push({
-          severity: "warning",
-          message: `Typo in Coop's own material (${t.where}): ${t.issue} — ask Pernilla before correcting it in the ad`,
-          found: t.text,
-          expected: t.suggestion,
-        });
+      // we correct Coop's typos ourselves (no waiting) and tell Pernilla we did
+      for (const t of sourceTypos) orderIssues.push(sourceTypoWarning(t, "Coop's material", "Pernilla"));
     } catch {
       // proofreading the source is a bonus — never fail the check over it
     }
@@ -352,6 +349,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     const bild = manus?.bilder.find((b) => b.index === f.mvk);
     const reading = await readAd(f.data, { poster: false, fileName: f.name });
     add(reading.usage);
+    adTexts.set(`MVK ${f.mvk}${f.format ? ` (${f.format})` : ""}`, textsOf(reading));
     const eff = applyFeedback(
       { expected: expectedOf((bild?.products ?? []).map((p) => p.raw)), headline: bild?.rubrik ?? null },
       feedback.changes.filter((c) => appliesTo(c, { mvk: f.mvk ?? null, poster: false })),
@@ -377,6 +375,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
   const posterReadings: Array<{ f: Sorted; reading: AdReading }> = await pool(posters, 2, async (f) => {
     const reading = await readAd(f.data, { poster: true, fileName: f.name });
     add(reading.usage);
+    adTexts.set(f.name.split("/").pop() || f.name, textsOf(reading));
     return { f, reading };
   });
   const specs: ManusPoster[] = manus?.posters ?? [];
@@ -436,6 +435,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
   ).flat();
   for (const c of cutoutReadings) {
     const label = `Cut-out ${(c.file.split("/").pop() || c.file).replace(/\.[a-z]+$/i, "")}`;
+    adTexts.set(label, c.items.flatMap((i) => [i.name, i.price, i.info, i.limit ?? "", ...i.splashes]));
     const fileWords = (c.file.split("/").pop() || "").replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ");
     const results: FileResult[] = [];
     for (const item of c.items.length ? c.items : []) {
@@ -481,6 +481,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
   const otherResults: FileResult[] = await pool(otherImages, 3, async (f) => {
     const reading = await readAd(f.data, { poster: false, fileName: f.name });
     add(reading.usage);
+    adTexts.set(f.name.split("/").pop() || f.name, textsOf(reading));
     const issues: Issue[] = [
       ...reading.textIssues.filter((t) => t.text !== t.suggestion).map((t) => ({ severity: "warning" as const, message: `Text: ${t.issue}`, found: t.text, expected: t.suggestion })),
       ...reading.unreadable.map((u) => ({ severity: "warning" as const, message: "Couldn't read reliably — check by eye", found: u })),
@@ -500,7 +501,12 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
       });
   }
 
-  for (const r of [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults]) r.issues = blameSource(r.issues, sourceTypos, "Coop's flyer/manus", "Pernilla");
+  for (const r of [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults]) {
+    r.issues = correctSourceTypos(r.issues, sourceTypos, "Coop's flyer/manus");
+    // an ad that copied the typo word for word matches the flyer, so scan its text directly
+    for (const t of typoIssues(adTexts.get(r.file) ?? [], sourceTypos, "Coop's flyer/manus"))
+      if (!r.issues.some((i) => i.message === t.message)) r.issues.push(t);
+  }
 
   const all = [
     ...orderIssues,
@@ -530,7 +536,7 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     files: [...mvkResults, ...posterResults, ...cutoutResults, ...otherResults],
     status,
     mode: "coop",
-    notes: zipSummary(files, downloaded.map((d) => d.name).concat(files.map((f) => f.name))),
+    notes: [...zipSummary(files, downloaded.map((d) => d.name).concat(files.map((f) => f.name)))],
     clientChanges: feedback.changes,
     assigneeEmails,
     tokens,
