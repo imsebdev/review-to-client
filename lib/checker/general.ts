@@ -14,6 +14,7 @@ import { askJson, b64, type ContentBlock, type Usage } from "./anthropic";
 import { similarity, type FileResult, type Issue } from "./compare";
 import { allComments, pickClientComments } from "./feedback";
 import { readSite, siteLinks, type SitePage } from "./website";
+import { blameSource, type SourceTypo } from "./source-proofread";
 import type { CheckReport } from "./run";
 
 // ---------- attachments ----------
@@ -78,6 +79,7 @@ export type Brief = {
   expectedAds: number | null;
   expectedFormats: string[];
   clientChanges: Array<{ quote: string; date: string }>;
+  sourceTypos: SourceTypo[]; // typos in the client's own material
   summary: string;
 };
 
@@ -106,9 +108,17 @@ const BRIEF_SCHEMA = {
       type: "array",
       items: { type: "object", properties: { quote: { type: "string" }, date: { type: "string" } }, required: ["quote", "date"] },
     },
+    sourceTypos: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { where: { type: "string" }, text: { type: "string" }, issue: { type: "string" }, suggestion: { type: "string" } },
+        required: ["where", "text", "issue", "suggestion"],
+      },
+    },
     summary: { type: "string" },
   },
-  required: ["language", "brandName", "brandSpellings", "urls", "exactCopy", "requirements", "facts", "expectedAds", "expectedFormats", "clientChanges", "summary"],
+  required: ["language", "brandName", "brandSpellings", "urls", "exactCopy", "requirements", "facts", "expectedAds", "expectedFormats", "clientChanges", "sourceTypos", "summary"],
 };
 
 const BRIEF_SYSTEM = `You prepare a QA checklist for an ad agency. The agency makes ads (social media, display banners, Google Performance Max assets, carousels) for many clients, mostly in Swedish, Finnish, Norwegian or English.
@@ -123,6 +133,7 @@ From the order card, the client's comments, the attached reference material and 
 - expectedAds: how many different ads/slides the order asks for, if it says (e.g. "3 ads in the carousel" → 3), else null.
 - expectedFormats: formats asked for (e.g. "SoMe 1080x1080", "Display", "GMP").
 - clientChanges: the client's change requests from the comments that still apply (later comments win), quoted briefly with the date. They override the brief.
+- sourceTypos: clear spelling errors in the CLIENT'S OWN material that is meant to end up in the ads — copy fields, quoted copy in the description or comments, text in attached PDFs/briefs/images. Only clear errors (misspelled or run-together words, missing space after a full stop, doubled words). Not brand/product names, not numbers, not style. where = which field/file; text = the wrong part exactly as written; suggestion = the correction. Empty list if none.
 - summary: 1–2 sentences: what is being advertised and to whom.
 Never invent facts. If the website couldn't be read, rely on the card.`;
 
@@ -182,6 +193,7 @@ The file is either ONE ad (kind "single_ad"), or a presentation sheet / mockup t
    - mixed languages where it isn't intended (warning)
    - for 9:16 stories/reels: important text in the top ~14% or bottom ~20% (covered by the app UI) (warning)
    Do NOT comment on design taste, colours, layout choices or image selection unless the brief/client asked for something specific.
+   If the ad repeats a typo listed in the checklist's sourceTypos (the client's own material), still report it, as a warning.
    Do not repeat the same problem twice. If everything is fine: empty list.
 3. unreadable: text you can't read reliably. Never guess numbers.
 Write messages in English, quote the ad's text in its original language.`;
@@ -413,6 +425,15 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
     ...(brief.exactCopy || []).filter((c) => !copyFields.some((f) => similarity(f.value, c.text) > 0.8)),
   ];
 
+  brief.sourceTypos = (brief.sourceTypos || []).filter((t) => t.text && t.suggestion && t.text.trim() !== t.suggestion.trim());
+  for (const t of brief.sourceTypos)
+    orderIssues.push({
+      severity: "warning",
+      message: `Typo in the client's own material (${t.where}): ${t.issue} — ask the client before correcting it in the ad`,
+      found: t.text,
+      expected: t.suggestion,
+    });
+
   // --- read every file
   const files: FileResult[] = [];
   const allTexts: string[] = [];
@@ -512,6 +533,10 @@ export async function runGeneralCheck(task: any, taskId: string, assigneeEmails:
     add(su);
     for (const i of set.issues || []) orderIssues.push({ severity: i.severity, message: i.message, found: i.found ?? undefined, expected: i.expected ?? undefined });
   }
+
+  for (const f of files) f.issues = blameSource(f.issues, brief.sourceTypos, "the client's material", "the client");
+  const softened = blameSource(orderIssues.filter((i) => !/^Typo in the client's own material/.test(i.message)), brief.sourceTypos, "the client's material", "the client");
+  orderIssues.splice(0, orderIssues.length, ...orderIssues.filter((i) => /^Typo in the client's own material/.test(i.message)), ...softened);
 
   const all = [...orderIssues, ...files.flatMap((f) => f.issues)];
   const status: CheckReport["status"] = all.some((i) => i.severity === "error") ? "failed" : all.length || videos.length ? "warnings" : "passed";

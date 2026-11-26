@@ -1,0 +1,103 @@
+// lib/checker/source-proofread.ts
+//
+// The client's own material can contain typos too (Coop's DR flyer, the manus, copy fields
+// on a card). Designers copy that text word for word, so a typo there ends up in the ad.
+// This proofreads the source texts once per order; findings are reported as "the client's
+// file has a typo — ask before correcting", and an ad that copied it isn't blamed for it.
+
+import { askJson, type Usage } from "./anthropic";
+import type { Issue } from "./compare";
+
+export type SourceText = { where: string; text: string };
+export type SourceTypo = { where: string; text: string; issue: string; suggestion: string };
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    typos: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          where: { type: "string" },
+          text: { type: "string", description: "the wrong word or phrase, exactly as written" },
+          issue: { type: "string" },
+          suggestion: { type: "string", description: "the corrected word or phrase" },
+        },
+        required: ["where", "text", "issue", "suggestion"],
+      },
+    },
+  },
+  required: ["typos"],
+};
+
+const SYSTEM = `You proofread a client's source material for an ad agency (product texts from a retail flyer, a brief, copy written by the client). Languages: mostly Swedish, also Finnish, Norwegian, English.
+Report ONLY clear errors that a careful proofreader would correct before printing:
+- misspelled words, doubled or missing letters, swapped letters ("Välj mellan oilka sorter")
+- two words run together or one word split wrongly ("mellanolika", "fullkorns makaroner")
+- missing space after a full stop or comma between words ("Touch.Gäller"), doubled words ("och och")
+Facts, units and numbers are not spelling — skip them entirely.
+Do NOT report: brand or product names (Marabou, Gorby's, Änglamark, Toms, made-up product names), abbreviations used in retail (Jfr-pris, Ord. pris, st, förp, Klass 1, ca), capitalisation style, missing final full stop, numbers, prices, dates, style or tone.
+"where" = the label given for that text. "text" = the wrong part exactly as written (short). If there are no clear errors: empty list.`;
+
+/** Proofread the client's texts. Duplicate texts are sent once. */
+export async function proofreadSources(items: SourceText[]): Promise<{ typos: SourceTypo[]; usage: Usage | null }> {
+  const seen = new Set<string>();
+  const uniq = items
+    .map((i) => ({ where: i.where, text: i.text.replace(/\s+/g, " ").trim() }))
+    .filter((i) => i.text.length > 2 && /\p{L}{3}/u.test(i.text))
+    .filter((i) => (seen.has(i.text) ? false : (seen.add(i.text), true)))
+    .slice(0, 300);
+  if (!uniq.length) return { typos: [], usage: null };
+  const { data, usage } = await askJson<{ typos: SourceTypo[] }>({
+    system: SYSTEM,
+    content: [{ type: "text", text: uniq.map((i) => `[${i.where}] ${i.text}`).join("\n") }],
+    toolName: "source_typos",
+    toolDescription: "Clear spelling/spacing errors in the client's source texts.",
+    schema: SCHEMA,
+    maxTokens: 2500,
+  });
+  // keep only findings that really quote the source (guards against invented typos)
+  const all = uniq.map((i) => i.text.toLowerCase()).join("\n");
+  const typos = (data.typos || []).filter(
+    (t) => t.text && t.suggestion && t.text.trim().toLowerCase() !== t.suggestion.trim().toLowerCase() && all.includes(t.text.trim().toLowerCase()),
+  );
+  return { typos, usage };
+}
+
+const flat = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Does this text from an ad contain one of the source typos? */
+export function typoIn(text: string | undefined | null, typos: SourceTypo[]): SourceTypo | null {
+  if (!text) return null;
+  const t = flat(text);
+  return typos.find((x) => t.includes(flat(x.text))) ?? null;
+}
+
+/**
+ * Issues caused by a typo in the client's own material:
+ *  - the ad copied the typo → warning, "comes from the client's file, ask before correcting"
+ *  - the ad fixed the typo, so it "differs from the flyer" → warning, "ad corrected it"
+ */
+export function blameSource(issues: Issue[], typos: SourceTypo[], source: string, who: string): Issue[] {
+  if (!typos.length) return issues;
+  return issues.map((i) => {
+    const inFound = typoIn(i.found, typos);
+    const inExpected = typoIn(i.expected, typos);
+    if (inExpected && !inFound)
+      return {
+        ...i,
+        severity: "warning",
+        message: `${i.message} — ${source} has a typo here (“${inExpected.text}” → “${inExpected.suggestion}”) and the ad corrected it. Fine, but let ${who} know`,
+      };
+    if (inFound && (/^Text:/.test(i.message) || inExpected))
+      return {
+        ...i,
+        severity: "warning",
+        message: `Same typo as ${source} (“${inFound.text}” → “${inFound.suggestion}”) — ask ${who} whether to correct it in the ad`,
+        expected: i.expected ?? inFound.suggestion,
+      };
+    return i;
+  });
+}
+

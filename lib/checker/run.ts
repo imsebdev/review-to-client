@@ -12,6 +12,7 @@ import { chainFromTitle, pickFlyer, sortFiles, weekFromTitle, type InFile, type 
 import { FLYER_PROMPT_VERSION, readFlyer, type FlyerProduct, type FlyerReading } from "./flyer";
 import { posterProducts, readManus, type Manus, type ManusPoster } from "./manus";
 import { runGeneralCheck } from "./general";
+import { blameSource, proofreadSources, type SourceTypo } from "./source-proofread";
 import { appliesTo, readClientFeedback, type ClientChange, type ClientFeedback } from "./feedback";
 
 export type CheckReport = {
@@ -295,6 +296,36 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     orderIssues.push({ severity: "warning", message: `Couldn't read the client's comments on the card (${String(e?.message ?? e).slice(0, 120)}) — checked against the manus only` });
   }
 
+  // Coop's own texts (flyer + manus headlines) can have typos — find them once, so an ad that
+  // copied one isn't blamed for it and one that fixed it isn't flagged as "differs from the flyer"
+  let sourceTypos: SourceTypo[] = [];
+  if (manus || flyer) {
+    const items = [
+      ...(flyer?.products ?? [])
+        .filter((p) => p.found)
+        .flatMap((p) => [
+          { where: `flyer p. ${p.page ?? "?"} (${p.heading})`, text: p.heading },
+          { where: `flyer p. ${p.page ?? "?"} (${p.heading})`, text: p.info },
+        ]),
+      ...(manus?.bilder ?? []).filter((b) => b.rubrik).map((b) => ({ where: `manus Bild ${b.index} headline`, text: b.rubrik! })),
+      ...feedback.changes.filter((c) => c.text).map((c) => ({ where: "client comment", text: c.text! })),
+    ];
+    try {
+      const r = await proofreadSources(items);
+      if (r.usage) add(r.usage);
+      sourceTypos = r.typos;
+      for (const t of sourceTypos)
+        orderIssues.push({
+          severity: "warning",
+          message: `Typo in Coop's own material (${t.where}): ${t.issue} — ask Pernilla before correcting it in the ad`,
+          found: t.text,
+          expected: t.suggestion,
+        });
+    } catch {
+      // proofreading the source is a bonus — never fail the check over it
+    }
+  }
+
   // read + compare every MVK
   const mvkResults = await pool(mvks, 4, async (f) => {
     const bild = manus?.bilder.find((b) => b.index === f.mvk);
@@ -369,6 +400,8 @@ export async function runCheck(taskId: string): Promise<CheckReport> {
     if (best < 0) result.issues.unshift({ severity: "warning", message: "The manus doesn't ask for a poster — checked spelling and arithmetic only" });
     return result;
   });
+
+  for (const r of [...mvkResults, ...posterResults]) r.issues = blameSource(r.issues, sourceTypos, "Coop's flyer/manus", "Pernilla");
 
   const all = [...orderIssues, ...mvkResults.flatMap((r) => r.issues), ...posterResults.flatMap((r) => r.issues)];
   const incomplete = !manus || !flyer;
