@@ -21,6 +21,8 @@ const NAMES = [
   "xtra-coop-v40-mvk1.png", "xtra-coop-v40-mvk3.png", "xtra-coop-v40-mvk2.png", "xtra-coop-v40-mvk10-old",
   "Stora-Coop_V48 - Jul- 70x100 - Skyllt.jpg", "Bl%C3%B6mk%C3%A5l LABEL.png", "X-TRA - Veckoboost 40.zip",
   "Manus_Veckoboost_X-tra.xlsx", "cx_2640_mandag_grund_s1-8_godkand_Original.pdf",
+  // build step 3: a print PDF that pairs with the poster JPG above, and a 2-page flyer PDF
+  "Stora-Coop_V48 - Jul- 70x100 - Skylt - Tryckfil.pdf", "Test_V48_FLYER_A4.pdf",
 ];
 const PREVIEW = NAMES.map((n, i) => `${ORIGIN}/api/file/TEST123/att${i}/${n.includes("%") ? n : encodeURIComponent(n)}`).join(",");
 
@@ -59,6 +61,8 @@ async function run(label, html, file, scenario) {
           log.push({ to: "feedback", headers: init.headers, keepalive: init.keepalive, body: init.body });
           return scenario.feedbackFails ? json({ ok: false }, 502) : json({ ok: true });
         }
+        // v2 only: PDF page count for the slideshow (not part of any payload)
+        if (u.pathname === "/api/preview" && u.searchParams.get("info") === "1") return json({ pages: 2, totalPages: 2, sizes: [] });
         log.push("unexpected fetch " + u.pathname);
         return json({}, 404);
       };

@@ -59,6 +59,10 @@
     .slide.lbl { background: radial-gradient(circle at 50% 45%, #1f3d2a 0%, #0c1a12 75%); padding: clamp(24px, 6vw, 70px); }
     .slide img, .slide video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
     .slide img { cursor: zoom-in; }
+    .slide.pv { position: relative; background: #111; }
+    .slide.pv img { box-shadow: 0 4px 24px rgba(0,0,0,0.6); }
+    .pv-wait { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--soft); font-size: 13px; pointer-events: none; }
+    .slide.pv[data-state="ok"] .pv-wait { display: none; }
     .fcard { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; max-width: 360px; color: var(--soft); font-size: 14px; }
     .fcard .ficon { width: 92px; height: 116px; border-radius: 10px; background: linear-gradient(160deg, #2a2a44, #1a1a2e); border: 1px solid rgba(160,160,255,0.35); display: grid; place-items: center; font-weight: 700; color: var(--acc); font-size: 18px; }
     .fcard b { color: #fff; font-size: 15px; overflow-wrap: anywhere; }
@@ -71,6 +75,7 @@
     .cap b { font-size: 14px; color: #e0e0ff; font-weight: 600; overflow-wrap: anywhere; }
     .cap small { display: block; color: var(--mute); font-size: 12px; }
     .cap .btn { min-height: 38px; font-size: 13px; padding: 0 14px; }
+    .capbtns { display: flex; flex-wrap: wrap; gap: 8px; }
     .thumbs { display: flex; flex-direction: column; gap: 12px; }
     .trow { display: flex; gap: 12px; align-items: flex-start; }
     .trow > span { flex: none; width: 110px; font-size: 12px; color: var(--mute); font-weight: 600; padding-top: 6px; }
@@ -81,6 +86,8 @@
     .th img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .th.lbl { background: #163222; }
     .th.lbl img { object-fit: contain; padding: 3px; }
+    .th.pdfth { position: relative; background: #22223a; }
+    .th.pdfth em { position: absolute; right: 3px; bottom: 3px; font-style: normal; font-size: 9px; font-weight: 700; color: #fff; background: rgba(0,0,0,0.7); border-radius: 4px; padding: 1px 4px; }
     .th.file { display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--acc); background: #22223a; }
     .th:hover { opacity: 1; }
     .th.on { opacity: 1; border-color: var(--acc); box-shadow: 0 4px 14px rgba(160,160,255,0.4); }
@@ -255,7 +262,10 @@
         </div>
         <div class="cap">
           <div><b id="capName"></b><small id="capMeta"></small></div>
-          <a class="btn" id="capDl" href="#" target="_blank" rel="noopener" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>Ladda ner den här filen</a>
+          <div class="capbtns">
+            <a class="btn" id="capDl" href="#" target="_blank" rel="noopener" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg><span id="capDlText">Ladda ner den här filen</span></a>
+            <a class="btn" id="capDl2" href="#" target="_blank" rel="noopener" download hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg><span>Ladda ner tryckfil (PDF)</span></a>
+          </div>
         </div>
         <div class="thumbs" id="thumbnails"></div>
         <div class="pdf-download-row" id="pdfDownloadRow">
@@ -463,6 +473,8 @@
           .map((p, i) => ({ url: `https://images.unsplash.com/${p}?w=800&h=600&fit=crop`, name: `Demo_${i + 1}.jpg`, ext: 'jpg', kind: 'image', group: 'ALL' }));
         sorted = { groups: [{ id: 'ALL', title: 'Alla filer', files: demo }], files: demo, hidden: [], ungrouped: [] };
       }
+      // A print PDF with a picture of it (poster JPG + PRINT PDF) = one slide with two downloads
+      if (G && G.pairPrintFiles) G.pairPrintFiles(sorted.files);
       if (sorted.hidden.length) console.info('v2: not shown to the client:', sorted.hidden.map(h => h.name + ' (' + h.reason + ')'));
       if (sorted.ungrouped.length) console.warn('v2: files without a group word (shown under Övrigt):', sorted.ungrouped);
 
@@ -503,9 +515,11 @@
       document.getElementById('projectName').textContent = displayName + ' - Review';
       document.getElementById('createdDate').textContent = taskData.created;
 
-      if (sorted.files.length > 0) {
+      buildSlides();
+      if (slides.length > 0) {
         document.getElementById('carouselContainer').hidden = false;
         renderShow();
+        loadPageCounts();
       }
       renderDownloads();
       renderPickGrid();
@@ -513,45 +527,118 @@
     }
 
     // ── SLIDESHOW ──────────────────────────────────────
+    // The slideshow works on slides, not files: a print PDF that has a picture of it is left out
+    // (the picture's slide offers both downloads), and a PDF without a picture gets one slide per
+    // page, drawn by /api/preview. Downloads, zips and the pick grid still use sorted.files.
     let filter = 'all', view = [], cur = 0, navTarget = null; // navTarget: slide we are scrolling to
+    let slides = [];
     const multiGroup = () => sorted.groups.length > 1;
+    const showGroups = () => sorted.groups.filter(g => slides.some(s => s.f.group === g.id));
+    const multiShow = () => showGroups().length > 1;
 
-    function renderShow() {
+    function buildSlides() {
+      slides = [];
+      for (const f of sorted.files) {
+        if (f.pairedWith) continue;
+        if (f.ext === 'pdf' && attIdOf(f)) slides.push({ f, pdf: true, page: 1, pages: 0 });
+        else slides.push({ f });
+      }
+    }
+
+    function previewUrl(s, size) {
+      const q = { taskId: taskData.taskId, id: attIdOf(s.f) };
+      if (size === 'info') q.info = '1'; else { q.page = String(s.page); q.size = size; }
+      return '/api/preview?' + new URLSearchParams(q).toString();
+    }
+
+    // Multi-page PDFs (flyers, bordsryttare): ask for the page count, then add a slide per page.
+    function loadPageCounts() {
+      slides.filter(s => s.pdf && s.page === 1 && !s.pages).forEach(s => {
+        s.pages = -1;
+        fetch(previewUrl(s, 'info'))
+          .then(r => r.ok ? r.json() : null)
+          .then(info => {
+            if (!info || !(info.pages >= 1)) return;
+            s.pages = info.pages;
+            if (info.pages > 1) {
+              const extra = [];
+              for (let p = 2; p <= info.pages; p++) extra.push({ f: s.f, pdf: true, page: p, pages: info.pages });
+              slides.splice(slides.indexOf(s) + 1, 0, ...extra);
+              renderShow(view[cur]);
+            } else syncShow();
+          })
+          .catch(() => {});
+      });
+    }
+
+    function renderShow(keep) {
       const track = document.getElementById('track');
-      view = filter === 'all' ? sorted.files : sorted.files.filter(f => f.group === filter);
+      view = filter === 'all' ? slides : slides.filter(s => s.f.group === filter);
 
       const chips = document.getElementById('chips');
-      chips.hidden = !multiGroup();
-      chips.innerHTML = multiGroup()
-        ? [`<button class="chip" type="button" data-filter="all" aria-pressed="${filter === 'all'}">Alla<span>${sorted.files.length}</span></button>`]
-            .concat(sorted.groups.map(g => `<button class="chip" type="button" data-filter="${esc(g.id)}" aria-pressed="${filter === g.id}">${esc(g.title)}<span>${g.files.length}</span></button>`)).join('')
+      const groups = showGroups();
+      chips.hidden = !multiShow();
+      chips.innerHTML = multiShow()
+        ? [`<button class="chip" type="button" data-filter="all" aria-pressed="${filter === 'all'}">Alla<span>${slides.length}</span></button>`]
+            .concat(groups.map(g => `<button class="chip" type="button" data-filter="${esc(g.id)}" aria-pressed="${filter === g.id}">${esc(g.title)}<span>${slides.filter(s => s.f.group === g.id).length}</span></button>`)).join('')
         : '';
 
       track.innerHTML = view.map(slideHTML).join('');
 
-      document.getElementById('thumbnails').innerHTML = sorted.files.length < 2 ? '' : sorted.groups.map(g =>
-        `<div class="trow${!multiGroup() ? ' solo' : ''}${filter !== 'all' && filter !== g.id ? ' dim' : ''}"><span>${esc(g.title)}</span><div class="tstrip">${g.files.map(f => {
-          const i = sorted.files.indexOf(f);
-          const cls = 'th' + (isLabel(f) ? ' lbl' : '') + (f.kind !== 'image' ? ' file' : '');
-          return `<button class="${cls}" type="button" data-thumb="${i}" aria-label="${esc(f.name)}" title="${esc(f.name)}">${f.kind === 'image' ? `<img src="${esc(f.url)}" alt="" loading="lazy">` : esc((f.ext || 'fil').toUpperCase())}</button>`;
-        }).join('')}</div></div>`).join('');
+      document.getElementById('thumbnails').innerHTML = slides.length < 2 ? '' : groups.map(g =>
+        `<div class="trow${!multiShow() ? ' solo' : ''}${filter !== 'all' && filter !== g.id ? ' dim' : ''}"><span>${esc(g.title)}</span><div class="tstrip">${slides.filter(s => s.f.group === g.id).map(thumbHTML).join('')}</div></div>`).join('');
 
       const many = view.length > 1;
       document.getElementById('prevBtn').hidden = !many;
       document.getElementById('nextBtn').hidden = !many;
-      go(0, true);
+      const k = keep ? view.indexOf(keep) : -1;
+      go(k >= 0 ? k : 0, true);
     }
 
-    function slideHTML(f) {
-      const i = sorted.files.indexOf(f);
+    function thumbHTML(s) {
+      const i = slides.indexOf(s), f = s.f;
+      const label = f.name + (s.pdf && s.pages > 1 ? ` – sida ${s.page}` : '');
+      const cls = 'th' + (isLabel(f) ? ' lbl' : '') + (f.kind !== 'image' && !s.pdf ? ' file' : '') + (s.pdf ? ' pdfth' : '');
+      const inner = f.kind === 'image' ? `<img src="${esc(f.url)}" alt="" loading="lazy">`
+        : s.pdf ? `<img src="${esc(previewUrl(s, 'stage'))}" alt="" loading="lazy" data-pvthumb="1"><em>${s.pages > 1 ? s.page : 'PDF'}</em>`
+        : esc((f.ext || 'fil').toUpperCase());
+      return `<button class="${cls}" type="button" data-thumb="${i}" aria-label="${esc(label)}" title="${esc(label)}">${inner}</button>`;
+    }
+
+    function fileCardHTML(f, text) {
+      return `<div class="fcard"><div class="ficon">${esc((f.ext || 'fil').toUpperCase())}</div><b>${esc(f.name)}</b><span>${esc(text)}</span><a class="btn" href="${esc(f.url)}" target="_blank" rel="noopener" download>${DL_ICON}Ladda ner</a></div>`;
+    }
+
+    function slideHTML(s) {
+      const i = slides.indexOf(s), f = s.f;
+      if (s.pdf) {
+        return `<div class="slide pv" data-state="loading"><img src="${esc(previewUrl(s, 'stage'))}" alt="${esc(f.name)}" data-open="${i}" data-pv="1"><div class="pv-wait"><div class="pdf-spinner"></div>Förhandsvisning laddas…</div></div>`;
+      }
       if (f.kind === 'image') {
         return `<div class="slide${isLabel(f) ? ' lbl' : ''}"><img src="${esc(f.url)}" alt="${esc(f.name)}" data-open="${i}" loading="lazy"></div>`;
       }
       if (f.kind === 'video') {
         return `<div class="slide"><video src="${esc(f.url)}" controls playsinline preload="metadata"></video></div>`;
       }
-      return `<div class="slide"><div class="fcard"><div class="ficon">${esc((f.ext || 'fil').toUpperCase())}</div><b>${esc(f.name)}</b><span>Den här filen visas inte i bildspelet. Ladda ner den för att öppna den.</span><a class="btn" href="${esc(f.url)}" target="_blank" rel="noopener" download>${DL_ICON}Ladda ner</a></div></div>`;
+      return `<div class="slide">${fileCardHTML(f, 'Den här filen visas inte i bildspelet. Ladda ner den för att öppna den.')}</div>`;
     }
+
+    // PDF preview loaded / failed (load and error don't bubble, so listen in the capture phase).
+    // A failed preview becomes the normal file card, so the client can always download the file.
+    document.addEventListener('load', e => {
+      const im = e.target;
+      if (im && im.dataset && im.dataset.pv) { const sl = im.closest('.slide'); if (sl) sl.dataset.state = 'ok'; }
+    }, true);
+    document.addEventListener('error', e => {
+      const im = e.target;
+      if (!(im instanceof HTMLImageElement)) return;
+      if (im.dataset.pv) {
+        const sl = im.closest('.slide'), s = slides[+im.dataset.open];
+        if (sl && s) { sl.dataset.state = 'failed'; sl.innerHTML = fileCardHTML(s.f, 'Förhandsvisningen kunde inte visas just nu. Ladda ner filen för att öppna den.'); }
+      } else if (im.dataset.pvthumb) {
+        im.remove();
+      }
+    }, true);
 
     function go(n, instant) {
       if (!view.length) return;
@@ -565,18 +652,27 @@
     function changeSlide(dir) { go(cur + dir); }
 
     function syncShow() {
-      const f = view[cur];
-      if (!f) return;
-      const inGroup = sorted.files.filter(x => x.group === f.group);
+      const sl = view[cur];
+      if (!sl) return;
+      const f = sl.f;
+      const inGroup = slides.filter(x => x.f.group === f.group);
       let pos = '';
-      if (multiGroup()) pos = filter === 'all' ? `${inGroup.indexOf(f) + 1} av ${inGroup.length} i ${groupTitle(f.group)}` : groupTitle(f.group);
+      if (multiShow()) pos = filter === 'all' ? `${inGroup.indexOf(sl) + 1} av ${inGroup.length} i ${groupTitle(f.group)}` : groupTitle(f.group);
       document.getElementById('carouselCounter').innerHTML = view.length > 1 || pos
         ? `FIL ${cur + 1} AV ${view.length}${pos ? ` <em>· ${esc(pos)}</em>` : ''}` : '';
       document.getElementById('capName').textContent = f.name;
-      document.getElementById('capMeta').textContent = typeLabel(f) + (multiGroup() ? ' · ' + groupTitle(f.group) : '');
-      document.getElementById('capDl').href = f.url;
-      const fi = sorted.files.indexOf(f);
-      document.querySelectorAll('.th').forEach(t => t.classList.toggle('on', +t.dataset.thumb === fi));
+      document.getElementById('capMeta').textContent = typeLabel(f)
+        + (f.printFile ? ' + tryckfil (PDF)' : '')
+        + (sl.pdf && sl.pages > 1 ? ` · Sida ${sl.page} av ${sl.pages}` : '')
+        + (multiShow() ? ' · ' + groupTitle(f.group) : '');
+      const dl = document.getElementById('capDl'), dl2 = document.getElementById('capDl2');
+      dl.href = f.url;
+      document.getElementById('capDlText').textContent = f.printFile ? `Ladda ner bild (${(f.ext || 'bild').toUpperCase()})`
+        : sl.pdf ? (sl.pages > 1 ? 'Ladda ner hela PDF:en' : 'Ladda ner PDF') : 'Ladda ner den här filen';
+      dl2.hidden = !f.printFile;
+      if (f.printFile) dl2.href = f.printFile.url;
+      const si = slides.indexOf(sl);
+      document.querySelectorAll('.th').forEach(t => t.classList.toggle('on', +t.dataset.thumb === si));
     }
 
     (function wireShow() {
@@ -690,13 +786,17 @@
       if (chip) { filter = chip.dataset.filter; renderShow(); return; }
       const th = t.closest('[data-thumb]');
       if (th) {
-        const f = sorted.files[+th.dataset.thumb];
-        if (filter !== 'all' && filter !== f.group) { filter = 'all'; renderShow(); }
-        go(view.indexOf(f));
+        const sl = slides[+th.dataset.thumb];
+        if (filter !== 'all' && filter !== sl.f.group) { filter = 'all'; renderShow(); }
+        go(view.indexOf(sl));
         return;
       }
       const op = t.closest('[data-open]');
-      if (op) { const f = sorted.files[+op.dataset.open]; openImageModal(f.url, f.name); return; }
+      if (op) {
+        const sl = slides[+op.dataset.open];
+        if (sl.pdf) openPdfModal(sl); else openImageModal(sl.f.url, sl.f.name);
+        return;
+      }
       const zoom = t.closest('[data-zoom]');
       if (zoom) { const d = taskData.designs[+zoom.dataset.zoom]; openImageModal(d.url, d.filename); return; }
     });
@@ -990,7 +1090,17 @@
       document.getElementById('lightboxCaption').textContent = name || '';
       document.getElementById('lightbox').classList.add('active');
     }
-    function closeLightbox() { document.getElementById('lightbox').classList.remove('active'); }
+    let lightboxToken = 0;
+    function openPdfModal(sl) {
+      const name = sl.f.name + (sl.pages > 1 ? ` – sida ${sl.page} av ${sl.pages}` : '');
+      const token = ++lightboxToken;
+      openImageModal(previewUrl(sl, 'stage'), name + ' · laddar full upplösning…');
+      const full = new Image();
+      full.onload = () => { if (token !== lightboxToken) return; document.getElementById('lightboxImage').src = full.src; document.getElementById('lightboxCaption').textContent = name; };
+      full.onerror = () => { if (token === lightboxToken) document.getElementById('lightboxCaption').textContent = name; };
+      full.src = previewUrl(sl, 'full');
+    }
+    function closeLightbox() { lightboxToken++; document.getElementById('lightbox').classList.remove('active'); }
   </script>
 </body>
 </html>

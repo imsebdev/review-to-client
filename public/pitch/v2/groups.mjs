@@ -128,3 +128,62 @@ export function sortFiles(urls) {
     ungrouped: anyGrouped ? visible.filter((f) => f.group === OTHER.id).map((f) => f.name) : [],
   };
 }
+
+// ── Print file + picture of it: one slide ─────────────────────────────────
+// A poster usually comes as a JPG (to look at) plus the print PDF, e.g.
+//   Test-Coop_V48_POSTER_70x100.jpg  +  Test-Coop_V48_POSTER_70x100_PRINT.pdf
+//   Stora-Coop_V48 - Jul- 70x100 - Skyllt.jpg  +  Stora-Coop_V48 - Jul- 70x100 - Skylt - Tryckfil.pdf
+// The slideshow shows them as ONE slide (the JPG) with two downloads. Both files stay in
+// their groups for downloads and zips; this only tells the slideshow which PDF to skip.
+
+const PRINT_WORDS = /(^|[^a-zåäö])(print|tryckfil|tryck)(?![a-zåäö])/gi;
+const PRINT_GROUPS = ["POSTER", "PRINT", "FLYER", "TABLE"];
+
+/** The name with the print words, the extension and all separators taken out. */
+function pairKey(name) {
+  return String(name)
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/, "")
+    .replace(/skyl+t/g, "skylt") // "Skyllt.jpg" + "Skylt - Tryckfil.pdf"
+    .replace(PRINT_WORDS, "$1")
+    .replace(/[^a-z0-9åäö]+/g, "");
+}
+
+function sizeToken(name) {
+  const m = String(name).match(/(\d{2,4})\s*x\s*(\d{2,4})/i);
+  return m ? m[1] + "x" + m[2] : null;
+}
+
+/**
+ * Pair each print PDF with the picture of it, when there is exactly one.
+ * Sets `pdf.pairedWith = <image url>` and `image.printFile = { url, name }`.
+ * 1) same name once the print words are removed; 2) otherwise, among print-type groups,
+ *    the only PDF and the only image with the same size (e.g. 70x100).
+ * @param {object[]} files  sortFiles(...).files
+ * @returns {number} pairs made
+ */
+export function pairPrintFiles(files) {
+  const pdfs = files.filter((f) => f.ext === "pdf" && !f.pairedWith);
+  const images = files.filter((f) => f.kind === "image" && !f.printFile);
+  const taken = new Set();
+  let made = 0;
+  const link = (pdf, img) => {
+    pdf.pairedWith = img.url;
+    img.printFile = { url: pdf.url, name: pdf.name };
+    taken.add(img);
+    made++;
+  };
+
+  for (const pdf of pdfs) {
+    const hits = images.filter((img) => !taken.has(img) && pairKey(img.name) === pairKey(pdf.name));
+    if (hits.length === 1) link(pdf, hits[0]);
+  }
+  for (const pdf of pdfs.filter((p) => !p.pairedWith && PRINT_GROUPS.includes(p.group))) {
+    const size = sizeToken(pdf.name);
+    if (!size) continue;
+    const samePdfs = pdfs.filter((p) => !p.pairedWith && PRINT_GROUPS.includes(p.group) && sizeToken(p.name) === size);
+    const hits = images.filter((img) => !taken.has(img) && PRINT_GROUPS.includes(img.group) && sizeToken(img.name) === size);
+    if (samePdfs.length === 1 && hits.length === 1) link(pdf, hits[0]);
+  }
+  return made;
+}
