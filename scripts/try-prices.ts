@@ -13,6 +13,14 @@ const jfr: Array<[string, string, string]> = [
   ["Västerbottensost (V48)", "79:-/st", "Sverige/Västerbottensost. Lagrad i minst 14 månader. Fetthalt 33%. 450 g. Jfr-pris 175:56/kg."],
   ["Potatis (X:TRA MVK1)", "9 90 /st", "Sverige/Coop. Klass 1. Välj mellan fast och mjölig. 900 g. Jfr-pris 11:-/kg."],
   ["Tvättmedel (per tvätt)", "39 90 /st", "A+. Välj mellan flytande 880 ml och pulver 725 g. Jfr-pris 1:60-1:81/tvätt. Tidigare lägsta pris 45:50/st."],
+  // drained weight (avrunnen vikt) — X:-TRA V52 false alarms; all should be ✅
+  ["Rödbetor (avr. vikt)", "15:-/st", "Felix. Inlagda. 530 g. Avrunnen vikt 350 g. Jfr-pris 42:86/kg."],
+  ["Rödbetor (530 g/350 g)", "15:-/st", "Felix. Inlagda. 530 g/350 g. Jfr-pris 42:86/kg."],
+  ["Rödbetor (350 g avr.)", "15:-/st", "Felix. Inlagda. 530 g (350 g avrunnen vikt). Jfr-pris 42:86/kg."],
+  ["Sill (range, avr.)", "2 för 50:-", "Abba. Välj mellan olika sorter. 430-440 g. Avr. vikt 214-220 g. Jfr-pris 113:64-116:82/kg."],
+  ["Räkor (avr.)", "69:90/st", "Handskalade. I lake. 420 g. Avrunnen vikt 240 g. Jfr-pris 291:25/kg."],
+  ["Rödbetor WRONG jfr (❌)", "15:-/st", "Felix. Inlagda. 530 g. Avrunnen vikt 350 g. Jfr-pris 39:90/kg."],
+  ["Max line ignored", "2 för 40:-", "Marabou. 160-180 g. Max 3 st/hushåll. Jfr-pris 111:11-125:-/kg."],
 ];
 for (const [name, p, i] of jfr) {
   const r = checkJfr(p, i);

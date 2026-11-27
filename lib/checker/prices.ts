@@ -77,6 +77,33 @@ export function parseQuantity(info: string): (Quantity & { approx: boolean }) | 
   return { min: Math.min(a.value, b.value), max: Math.max(a.value, b.value), unit: a.unit, approx };
 }
 
+/**
+ * Every pack size mentioned in an info line, in order. Products packed in liquid (pickled beetroot,
+ * herring, shrimp in brine…) print both the net weight and the drained weight ("avrunnen vikt"), and
+ * their Jfr-pris is based on the DRAINED weight — so the first weight alone isn't enough.
+ * drained=true when the weight is labelled "avrunnen/avr. vikt" (before or after) or is the second of "530 g/350 g".
+ */
+export function parseQuantities(info: string): Array<Quantity & { approx: boolean; drained: boolean }> {
+  const t = info.replace(/\s+/g, " ").replace(/–/g, "-").toLowerCase();
+  const approx = /\bca\b/.test(t);
+  const out: Array<Quantity & { approx: boolean; drained: boolean }> = [];
+  const re = /(?:(\d+)\s*x\s*)?(\d+(?:[.,]\d+)?)\s*(?:-\s*(\d+(?:[.,]\d+)?))?\s*(g|kg|ml|cl|dl|l|liter|st)\b(?!\s*\/\s*(?:hushåll|kund|person))/g;
+  const DRAINED = /avr(?:unnen|\.|un)?\s*(?:vikt)?|drained|fast vikt/;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t))) {
+    const unit = m[4];
+    const mult = m[1] ? Number(m[1]) : 1;
+    const a = toBase(mult * num(m[2]), unit);
+    const b = m[3] ? toBase(mult * num(m[3]), unit) : a;
+    const before = t.slice(Math.max(0, m.index - 25), m.index);
+    const after = t.slice(m.index + m[0].length, m.index + m[0].length + 20);
+    const drained =
+      DRAINED.test(before.split(/[.;]/).pop() ?? "") || /^\s*\(?\s*avr/.test(after) || (/\/\s*$/.test(before) && out.length > 0);
+    out.push({ min: Math.min(a.value, b.value), max: Math.max(a.value, b.value), unit: a.unit, approx, drained });
+  }
+  return out;
+}
+
 function num(s: string) {
   return Number(s.replace(",", "."));
 }
@@ -136,24 +163,30 @@ function parseRange(s: string): { min: number; max: number } | null {
  */
 export function checkJfr(priceText: string, info: string): Finding[] {
   const offers = parseOffers(priceText);
-  const qty = parseQuantity(info.replace(/jfr-?pris.*$/i, "")); // pack size, not the jfr itself
+  const sizes = info.replace(/jfr-?pris.*$/i, ""); // pack sizes, not the jfr itself
+  const qty = parseQuantity(sizes);
   const printed = parseJfr(info);
   if (!offers.length || !qty || !printed.length) return [];
   if (qty.approx) return [];
+  const all = parseQuantities(sizes);
   const findings: Finding[] = [];
   for (const p of printed) {
-    if (p.unit !== qty.unit) continue; // e.g. "/tvätt" — can't be derived from pack size
+    // candidates: every pack size in the right unit, drained weight first (that's what Jfr-pris uses)
+    const cands = all.filter((q) => q.unit === p.unit).sort((a, b) => Number(b.drained) - Number(a.drained));
+    if (!cands.length) continue; // e.g. "/tvätt" — can't be derived from pack size
     const offer = p.tier ? offers.find((o) => o.qty === p.tier) : offers[0];
     if (!offer || (offer.per && offer.per !== "st" && offer.per !== "förp")) continue; // /kg prices have no pack jfr
     const each = offer.total / offer.qty;
-    const expMin = Math.round(each / qty.max);
-    const expMax = Math.round(each / qty.min);
-    const ok = Math.abs(expMin - p.min) <= 1 && Math.abs(expMax - p.max) <= 1;
+    const exp = (q: Quantity) => ({ min: Math.round(each / q.max), max: Math.round(each / q.min) });
+    const matches = (e: { min: number; max: number }) => Math.abs(e.min - p.min) <= 1 && Math.abs(e.max - p.max) <= 1;
+    const hit = cands.find((q) => matches(exp(q)));
+    const e = exp(hit ?? cands[0]);
+    const ok = !!hit;
     const fmt = (a: number, b: number) => (a === b ? formatMoney(a) : `${formatMoney(a)}-${formatMoney(b)}`);
     findings.push({
       ok,
       message: ok ? "Jfr-pris is correct" : "Jfr-pris doesn't match the price and pack size",
-      expected: `${fmt(expMin, expMax)}/${p.unit}${p.tier ? ` (vid köp av ${p.tier})` : ""}`,
+      expected: `${fmt(e.min, e.max)}/${p.unit}${p.tier ? ` (vid köp av ${p.tier})` : ""}`,
       found: `${fmt(p.min, p.max)}/${p.unit}`,
     });
   }
