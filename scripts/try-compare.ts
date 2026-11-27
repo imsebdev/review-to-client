@@ -41,3 +41,14 @@ const r3 = checkFile({ file: "MVK 6", kind: "mvk",
   reading: reading([it("Tvättmedel", "39:90/st", "Via. Välj mellan olika sorter. 1,2 liter. Jfr-pris 1:33/tvätt. Tidigare lägsta pris 49:90/st.", { splashes: ["Du sparar 5:60"] })]),
   flyerValidity: null, manusHeadline: null, headlineNeedsPeriod: false });
 console.log("\n### X:TRA MVK6 (reconstructed wrong version)"); r3.issues.forEach(i => console.log(` ${i.severity === "error" ? "❌" : "⚠️"} [${i.product}] ${i.message} | expected: ${i.expected} | found: ${i.found}`));
+
+// X:-TRA V52 — MVK 7 rödbetor matches the flyer (drained-weight Jfr-pris): no issues at all.
+// Poster grönkål with the wrong price: only "Price differs", no recomputed Jfr-pris / "Du sparar" noise.
+{
+  const exp52 = [fp("Inlagda rödbetor", "15:-/st", "Felix. 530 g. Avrunnen vikt 350 g. Jfr-pris 42:86/kg.")];
+  const r = checkFile({ file: "MVK 7", kind: "mvk", expected: exp52, reading: reading([it("Inlagda rödbetor", "15:-/st", "Felix. 530 g. Avrunnen vikt 350 g. Jfr-pris 42:86/kg.")]), flyerValidity: null, manusHeadline: null, headlineNeedsPeriod: false, fileNameProducts: [] });
+  console.log("### V52 MVK 7 (expect no issues):", r.issues.length ? r.issues.map(i => i.message).join(" | ") : "none ✅");
+  const expK = [fp("Brysselkål/grönkål", "2 för 30:-", "Sverige. Klass 1. 173-212 g. Jfr-pris 70:91-86:67/kg. Ord. pris 18:90/st.")];
+  const rk = checkFile({ file: "grönkål- 70x100.png", kind: "poster", expected: expK, reading: reading([it("Brysselkål/grönkål", "39:-", "Sverige. Klass 1. 173-212 g. Jfr-pris 70:91-86:67/kg. Ord. pris 18:90/st.", { splashes: ["Du sparar 7:80"] })]), flyerValidity: null, manusHeadline: null, headlineNeedsPeriod: false, fileNameProducts: [] });
+  console.log("### V52 grönkål poster (expect only price):", rk.issues.map(i => i.message).join(" | "));
+}

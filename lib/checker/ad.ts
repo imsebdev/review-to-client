@@ -57,7 +57,11 @@ const SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        properties: { text: { type: "string" }, issue: { type: "string" }, suggestion: { type: "string" } },
+        properties: {
+          text: { type: "string", description: "the wrong text, exactly as printed (Swedish)" },
+          issue: { type: "string", description: "what is wrong — ALWAYS in English" },
+          suggestion: { type: "string", description: "the corrected text (Swedish)" },
+        },
         required: ["text", "issue", "suggestion"],
       },
     },
@@ -82,7 +86,10 @@ Skriv av exakt vad som står i bilden – rätta ingenting i avskriften.
   dubbla mellanslag, produktnamn med liten begynnelsebokstav när övriga har stor, felaktig versalisering. Inte stilval, inte varumärken.
   Kommentera aldrig bildinnehållet, priser eller räknefel här – bara stavning/skiljetecken/mellanslag/versaler i texten.
   Om du inte hittar några sådana fel: tom lista.
+  SPRÅK: "text" och "suggestion" skrivs på svenska exakt som i annonsen, men "issue" (förklaringen) skrivs ALLTID på ENGELSKA –
+  teamet läser engelska. T.ex. issue: "Product name starts with a lower-case letter while the others are capitalised".
 - "unreadable": annonsens egen text (pris, produktnamn, info, rubrik) som du inte kan läsa säkert. Gissa aldrig siffror.
+  Citera texten som den står; eventuell kommentar om varför skrivs på engelska.
   Text på förpackningarna i produktbilderna räknas inte – den ska varken skrivas av eller rapporteras.`;
 
 async function jpeg(img: sharp.Sharp, maxSide: number): Promise<string> {
