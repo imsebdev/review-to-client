@@ -170,7 +170,7 @@ function compareProduct(m: Match): Issue[] {
 
   if (!exp.found) {
     // product not in the flyer (X:-TRA "egen vara"): only arithmetic + spelling can be checked
-    issues.push(...arithmetic(item, product));
+    issues.push(...arithmetic(item, product, { jfr: true, saving: true }));
     return issues;
   }
 
@@ -249,23 +249,24 @@ function compareProduct(m: Match): Issue[] {
     });
   }
 
-  // arithmetic: if the flyer prints the same numbers, the mistake is Coop's, not the designer's
-  const sameAsFlyer = stripEnd(e.info) === stripEnd(a.info) && samePrice(item.price, exp.price);
-  for (const x of arithmetic(item, product)) {
-    if (sameAsFlyer && /Jfr-pris/.test(x.message))
-      issues.push({ ...x, severity: "warning", message: `${x.message} — the flyer says the same, so this is probably Coop's error (ask Pernilla)` });
-    else issues.push(x);
-  }
+  // No Jfr-pris recalculation for flyer products: the flyer is the source of truth and the info-line
+  // comparison above already catches a wrong Jfr-pris. Recomputed numbers that aren't in the flyer only
+  // confused the team (e.g. drained-weight products). "Du sparar" only when the price matches the flyer —
+  // with a wrong price the recomputed saving is nonsense and the price error is already reported.
+  issues.push(...arithmetic(item, product, { jfr: false, saving: samePrice(item.price, exp.price) }));
   return issues;
 }
 
-function arithmetic(item: AdItem, product: string): Issue[] {
+/** Price arithmetic. jfr: recompute Jfr-pris (only for products not in the flyer — nothing else to check against). */
+function arithmetic(item: AdItem, product: string, opts: { jfr: boolean; saving: boolean }): Issue[] {
   const issues: Issue[] = [];
-  for (const f of checkJfr(item.price, item.info)) {
-    if (!f.ok) issues.push({ severity: "error", product, message: f.message, expected: f.expected, found: f.found });
-  }
+  if (opts.jfr)
+    for (const f of checkJfr(item.price, item.info)) {
+      if (!f.ok) issues.push({ severity: "error", product, message: f.message, expected: f.expected, found: f.found });
+    }
   for (const s of item.splashes) {
     if (/sparar/i.test(s)) {
+      if (!opts.saving) continue;
       const f = checkSaving(item.price, item.info, s);
       if (f && !f.ok) issues.push({ severity: "error", product, message: f.message, expected: f.expected, found: f.found });
     } else if (/^\s*(ca\s*)?\d+([.,]\d+)?\s*(g|kg|ml|cl|dl|l|liter)\s*$/i.test(s)) {
